@@ -39,7 +39,8 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       race_date       TEXT NOT NULL,
       target_time_sec INTEGER NOT NULL,
       target_pace     REAL NOT NULL,
-      plan_content    TEXT NOT NULL DEFAULT ''
+      plan_content    TEXT NOT NULL DEFAULT '',
+      created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
     );
 
     -- 用户档案表

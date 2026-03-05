@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,24 +18,67 @@ import {
   FontWeight,
   Spacing,
 } from '../src/constants/theme';
+import { racePlanRepo } from '../src/db/repositories/RacePlanRepository';
 import { generateRacePlan, RacePlanOutput } from '../src/engine/RaceEngine';
 
 export default function RaceAssistantScreen() {
   const [raceDate, setRaceDate] = useState('');
   const [targetTime, setTargetTime] = useState(''); // HH:MM:SS
   const [plan, setPlan] = useState<RacePlanOutput | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleGenerate = () => {
-    // 解析目标时间
+  // 加载已保存的计划
+  useEffect(() => {
+    racePlanRepo.getLatest().then((saved) => {
+      if (saved) {
+        setRaceDate(saved.race_date);
+        const h = Math.floor(saved.target_time_sec / 3600);
+        const m = Math.floor((saved.target_time_sec % 3600) / 60);
+        const s = saved.target_time_sec % 60;
+        setTargetTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+        setPlan(generateRacePlan({ raceDate: saved.race_date, targetTimeSec: saved.target_time_sec }));
+      }
+    });
+  }, []);
+
+  const handleGenerate = async () => {
     const parts = targetTime.split(':').map(Number);
     let sec = 0;
     if (parts.length === 3) sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
     else if (parts.length === 2) sec = parts[0] * 3600 + parts[1] * 60;
 
-    if (!raceDate.match(/^\d{4}-\d{2}-\d{2}$/)) return;
-    if (sec < 7200 || sec > 28800) return; // 2h–8h 范围
+    if (!raceDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      Alert.alert('日期格式错误', '请输入 YYYY-MM-DD 格式');
+      return;
+    }
+    if (sec < 7200 || sec > 28800) {
+      Alert.alert('时间范围错误', '目标时间应在 2–8 小时之间');
+      return;
+    }
 
-    setPlan(generateRacePlan({ raceDate, targetTimeSec: sec }));
+    const generated = generateRacePlan({ raceDate, targetTimeSec: sec });
+    setPlan(generated);
+
+    // 保存到本地数据库
+    setSaving(true);
+    try {
+      const paceMin = Math.floor(generated.targetPaceSec / 60);
+      const paceSec = Math.round(generated.targetPaceSec % 60);
+      const planText = [
+        `目标：${generated.targetTimeLabel}`,
+        `配速：${generated.targetPaceLabel}/km`,
+        ...generated.preRacePlan.map((p) => `${p.days}：${p.plan}`),
+      ].join('\n');
+
+      await racePlanRepo.upsert({
+        race_date: raceDate,
+        target_time_sec: sec,
+        target_pace: generated.targetPaceSec,
+        plan_content: planText,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -68,8 +112,15 @@ export default function RaceAssistantScreen() {
                 keyboardType="numbers-and-punctuation"
               />
             </View>
-            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} activeOpacity={0.8}>
-              <Text style={styles.generateBtnText}>生成备赛方案</Text>
+            <TouchableOpacity
+              style={[styles.generateBtn, saving && { opacity: 0.7 }]}
+              onPress={handleGenerate}
+              activeOpacity={0.8}
+              disabled={saving}
+            >
+              <Text style={styles.generateBtnText}>
+                {saving ? '保存中...' : plan ? '更新方案' : '生成备赛方案'}
+              </Text>
             </TouchableOpacity>
           </View>
 

@@ -71,8 +71,10 @@ def parse_ocr_text(raw_text: str) -> OCRResult:
         result.duration_str = f"{h:02d}:{mn:02d}:{s:02d}"
         confidence_score += 0.2
 
-    # 心率：131 bpm / 平均心率 131 / 心率131
+    # 心率：131 bpm / 平均心率 131 / 131\n平均心率（Keep 格式：数字在标签前）
     m = re.search(r"(?:平均心率|心率)\D{0,5}(\d{2,3})", raw_text)
+    if not m:
+        m = re.search(r"(\d{2,3})\s*\n?\s*(?:平均心率|心率)", raw_text)
     if not m:
         m = re.search(r"(\d{2,3})\s*(?:bpm|BPM)", raw_text)
     if m:
@@ -90,8 +92,10 @@ def parse_ocr_text(raw_text: str) -> OCRResult:
         result.run_date = f"{y}-{mo:02d}-{d:02d}"
         confidence_score += 0.1
 
-    # 步频：178 步/分钟
+    # 步频：178 步/分钟 / 178\n平均步频（Keep 格式）
     m = re.search(r"(\d{2,3})\s*(?:步/分钟|spm|SPM)", raw_text)
+    if not m:
+        m = re.search(r"(\d{2,3})\s*\n?\s*(?:平均步频|步频)", raw_text)
     if m:
         result.cadence = int(m.group(1))
 

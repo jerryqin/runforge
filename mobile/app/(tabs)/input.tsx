@@ -57,7 +57,7 @@ export default function InputScreen() {
 
     setOcrLoading(true);
     try {
-      const ocrResult = await ocrEngine.analyze(result.assets[0].uri);
+      const ocrResult = await ocrEngine.analyzeImage(result.assets[0].uri);
       // 预填表单
       if (ocrResult.distance) setDistance(String(ocrResult.distance));
       if (ocrResult.duration_sec) {
