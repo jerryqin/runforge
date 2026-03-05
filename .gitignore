@@ -1,0 +1,43 @@
+# ===== Mobile (Expo / React Native) =====
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/build/
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/*.orig.*
+mobile/web-build/
+mobile/.env
+mobile/.env.local
+
+# ===== Backend (Python / FastAPI) =====
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.env
+backend/.env.local
+backend/venv/
+backend/.venv/
+backend/*.egg-info/
+backend/dist/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/alembic/versions/*.pyc
+
+# ===== Docker =====
+backend/.env
+backend/.env.local
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
