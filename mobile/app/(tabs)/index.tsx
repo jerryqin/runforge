@@ -21,7 +21,7 @@ import {
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcBodyStatus, calcIntensity } from '../../src/engine/AnalysisEngine';
+import { calcBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk } from '../../src/engine/AnalysisEngine';
 import { BodyStatus, RunRecord } from '../../src/types';
 
 export default function HomeScreen() {
@@ -37,11 +37,18 @@ export default function HomeScreen() {
       userProfileRepo.get(),
     ]);
     
-    // 根据最新 max_hr 重新计算每条记录的强度
-    const updated = records.map(record => ({
-      ...record,
-      intensity: calcIntensity(record.avg_hr, profile),
-    }));
+    // 根据最新 max_hr 重新计算每条记录的强度和相关文案
+    const updated = records.map((record, idx) => {
+      const intensity = calcIntensity(record.avg_hr, profile);
+      const recentForRisk = records.slice(0, idx); // 前面的记录用于风险判断
+      return {
+        ...record,
+        intensity,
+        conclusion: buildConclusion(intensity),
+        suggest: buildSuggest(intensity, record.distance, recentForRisk),
+        risk: buildRisk(intensity, recentForRisk),
+      };
+    });
     
     setRecentRecords(updated);
     setBodyStatus(calcBodyStatus(updated));

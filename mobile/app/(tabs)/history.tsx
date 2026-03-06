@@ -13,7 +13,7 @@ import { RunSummaryCard } from '../../src/components/RunSummaryCard';
 import { Colors, FontSize, FontWeight, Spacing } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcIntensity } from '../../src/engine/AnalysisEngine';
+import { calcIntensity, buildConclusion, buildSuggest, buildRisk } from '../../src/engine/AnalysisEngine';
 import { RunRecord } from '../../src/types';
 
 export default function HistoryScreen() {
@@ -28,11 +28,18 @@ export default function HistoryScreen() {
       userProfileRepo.get(),
     ]);
     
-    // 根据最新 max_hr 重新计算每条记录的强度
-    const updated = data.map(record => ({
-      ...record,
-      intensity: calcIntensity(record.avg_hr, profile),
-    }));
+    // 根据最新 max_hr 重新计算每条记录的强度和相关文案
+    const updated = data.map((record, idx) => {
+      const intensity = calcIntensity(record.avg_hr, profile);
+      const recentForRisk = data.slice(0, idx); // 前面的记录用于风险判断
+      return {
+        ...record,
+        intensity,
+        conclusion: buildConclusion(intensity),
+        suggest: buildSuggest(intensity, record.distance, recentForRisk),
+        risk: buildRisk(intensity, recentForRisk),
+      };
+    });
     
     setRecords(updated);
   }, []);
