@@ -5,6 +5,7 @@
  */
 
 import { BodyStatus, FitnessMetrics, Intensity, RunRecord, UserProfile } from '../types';
+import { calcVDOT } from './VDOTEngine';
 
 // ===== 常量 =====
 const LONG_DISTANCE_KM = 25;
@@ -168,6 +169,8 @@ export interface AnalysisInput {
   runDate: string;
   profile: UserProfile;
   recentRecords: RunRecord[];
+  rpe?: number;          // 主观疲劳(1-10)
+  cadence?: number;      // 步频
 }
 
 export interface AnalysisOutput {
@@ -177,15 +180,28 @@ export interface AnalysisOutput {
   suggest: string;
   risk: string;
   tss: number;
+  vdot: number;
+  rpe?: number;
+  cadence?: number;
 }
 
 export function analyze(input: AnalysisInput): AnalysisOutput {
-  const { distance, durationSec, avgHr, profile, recentRecords } = input;
+  const { distance, durationSec, avgHr, profile, recentRecords, rpe, cadence } = input;
   const avgPace = durationSec / distance;
   const intensity = calcIntensity(avgHr, profile);
-  const tss = calcTSS(durationSec, avgHr, profile.hr_threshold);
+  let tss = calcTSS(durationSec, avgHr, profile.hr_threshold);
+
+  // RPE 修正 TSS: 如果 RPE 偏离客观评估 ±2 分以上，做修正
+  if (rpe != null && rpe >= 1 && rpe <= 10) {
+    const objectiveRpe = intensity * 2.5; // 大致映射: EASY=2.5, NORMAL=5, HIGH=7.5, OVER=10
+    const rpeRatio = rpe / objectiveRpe;
+    // 用 RPE 比值小幅修正 TSS（权重30%）
+    tss = tss * (0.7 + 0.3 * rpeRatio);
+  }
+
+  const vdot = calcVDOT(distance, durationSec);
   const conclusion = buildConclusion(intensity);
   const suggest = buildSuggest(intensity, distance, recentRecords);
   const risk = buildRisk(intensity, recentRecords);
-  return { intensity, avgPace, conclusion, suggest, risk, tss };
+  return { intensity, avgPace, conclusion, suggest, risk, tss, vdot, rpe, cadence };
 }

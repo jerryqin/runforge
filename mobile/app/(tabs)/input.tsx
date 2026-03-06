@@ -37,6 +37,7 @@ export default function InputScreen() {
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');   // HH:MM:SS
   const [avgHr, setAvgHr] = useState('');
+  const [rpe, setRpe] = useState('');              // RPE 1-10
   const [runDate, setRunDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -109,6 +110,7 @@ export default function InputScreen() {
         runDate,
         profile,
         recentRecords,
+        rpe: rpe ? parseInt(rpe, 10) : undefined,
       });
 
       const saved = await runRecordRepo.save({
@@ -123,6 +125,8 @@ export default function InputScreen() {
         suggest: output.suggest,
         risk: output.risk,
         tss: output.tss,
+        vdot: output.vdot,
+        rpe: output.rpe,
       });
 
       // 跳转到详情页
@@ -201,6 +205,37 @@ export default function InputScreen() {
                 placeholder="YYYY-MM-DD"
                 keyboardType="numbers-and-punctuation"
               />
+
+              {/* RPE 主观疲劳评分 */}
+              <View style={styles.rpeContainer}>
+                <Text style={styles.fieldLabel}>主观疲劳 RPE（可选）</Text>
+                <Text style={styles.rpeHint}>1=非常轻松  5=适中  10=筍疲力竭</Text>
+                <View style={styles.rpeRow}>
+                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[
+                        styles.rpeBtn,
+                        rpe === String(n) && styles.rpeBtnActive,
+                        n <= 3 && rpe === String(n) && { backgroundColor: Colors.intensityEasy + '30' },
+                        n >= 4 && n <= 6 && rpe === String(n) && { backgroundColor: Colors.intensityNormal + '30' },
+                        n >= 7 && n <= 8 && rpe === String(n) && { backgroundColor: Colors.intensityHigh + '30' },
+                        n >= 9 && rpe === String(n) && { backgroundColor: Colors.intensityOver + '30' },
+                      ]}
+                      onPress={() => setRpe(rpe === String(n) ? '' : String(n))}
+                    >
+                      <Text style={[
+                        styles.rpeBtnText,
+                        rpe === String(n) && styles.rpeBtnTextActive,
+                        n <= 3 && rpe === String(n) && { color: Colors.intensityEasy },
+                        n >= 4 && n <= 6 && rpe === String(n) && { color: Colors.intensityNormal },
+                        n >= 7 && n <= 8 && rpe === String(n) && { color: Colors.intensityHigh },
+                        n >= 9 && rpe === String(n) && { color: Colors.intensityOver },
+                      ]}>{n}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
 
               {/* 配速预计算提示 */}
               {distance && duration ? (
@@ -354,4 +389,19 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { fontSize: FontSize.h3, fontWeight: FontWeight.semibold, color: Colors.white },
+  rpeContainer: { gap: Spacing.xs },
+  rpeHint: { fontSize: FontSize.caption, color: Colors.gray3 },
+  rpeRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+  rpeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.separator,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rpeBtnActive: { borderColor: 'transparent' },
+  rpeBtnText: { fontSize: FontSize.body, color: Colors.gray2, fontWeight: FontWeight.medium },
+  rpeBtnTextActive: { fontWeight: FontWeight.bold },
 });

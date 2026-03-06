@@ -27,6 +27,7 @@ export default function ProfileScreen() {
   const [restingHr, setRestingHr] = useState('');
   const [hrThreshold, setHrThreshold] = useState('');
   const [birthYear, setBirthYear] = useState('');
+  const [weeklyKm, setWeeklyKm] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
       setRestingHr(String(p.resting_hr));
       setHrThreshold(String(p.hr_threshold));
       setBirthYear(p.birth_year ? String(p.birth_year) : '');
+      setWeeklyKm(p.weekly_km ? String(p.weekly_km) : '30');
     });
   }, []);
 
@@ -57,13 +59,16 @@ export default function ProfileScreen() {
     const lthr = parseInt(hrThreshold, 10);
     const by = birthYear ? parseInt(birthYear, 10) : undefined;
 
+    const wk = weeklyKm ? parseInt(weeklyKm, 10) : 30;
+
     if (!mhr || mhr < 150 || mhr > 220) return Alert.alert('最大心率应在 150–220 之间');
     if (!rhr || rhr < 30 || rhr > 80) return Alert.alert('静息心率应在 30–80 之间');
     if (!lthr || lthr < 130 || lthr > 200) return Alert.alert('乳酸阈值心率应在 130–200 之间');
+    if (wk < 5 || wk > 250) return Alert.alert('周跑量应在 5–250 之间');
 
     setSaving(true);
     try {
-      await userProfileRepo.save({ max_hr: mhr, resting_hr: rhr, hr_threshold: lthr, birth_year: by });
+      await userProfileRepo.save({ max_hr: mhr, resting_hr: rhr, hr_threshold: lthr, birth_year: by, weekly_km: wk });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -136,6 +141,14 @@ export default function ProfileScreen() {
             placeholder="如：165"
             keyboardType="number-pad"
             hint="通常为最大心率的 87–92%"
+          />
+          <ProfileField
+            label="当前每周跑量 (km)"
+            value={weeklyKm}
+            onChangeText={setWeeklyKm}
+            placeholder="如：30"
+            keyboardType="number-pad"
+            hint="用于生成训练计划和处方的参考基准"
           />
 
           <TouchableOpacity

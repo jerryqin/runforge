@@ -91,6 +91,12 @@ export default function RecordDetailScreen() {
           {record.tss != null && (
             <BigMetric label="TSS" value={record.tss.toFixed(0)} unit="分" />
           )}
+          {record.vdot != null && record.vdot > 0 && (
+            <BigMetric label="VDOT" value={record.vdot.toFixed(1)} />
+          )}
+          {record.rpe != null && (
+            <BigMetric label="RPE" value={`${record.rpe}`} unit="/10" />
+          )}
         </View>
 
         {/* 分析结论 */}

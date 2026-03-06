@@ -23,6 +23,10 @@ export default function RootLayout() {
           name="race-assistant"
           options={{ title: '比赛小助手', headerBackTitle: '返回' }}
         />
+        <Stack.Screen
+          name="training-plan"
+          options={{ title: '周期化训练计划', headerBackTitle: '返回' }}
+        />
       </Stack>
     </>
   );

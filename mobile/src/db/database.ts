@@ -30,7 +30,9 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       tss             REAL,
       elevation_gain  REAL,
       temperature     INTEGER,
-      rpe             INTEGER
+      rpe             INTEGER,
+      vdot            REAL,
+      cadence         INTEGER
     );
 
     -- 比赛备赛表
@@ -49,7 +51,18 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       max_hr          INTEGER NOT NULL DEFAULT 185,
       resting_hr      INTEGER NOT NULL DEFAULT 55,
       hr_threshold    INTEGER NOT NULL DEFAULT 165,
-      birth_year      INTEGER
+      birth_year      INTEGER,
+      weekly_km       REAL NOT NULL DEFAULT 30
+    );
+
+    -- 训练计划表
+    CREATE TABLE IF NOT EXISTS training_plan (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      race_date       TEXT NOT NULL,
+      vdot            REAL NOT NULL,
+      weekly_peak_km  REAL NOT NULL,
+      plan_json       TEXT NOT NULL DEFAULT '{}',
+      created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
     );
 
     -- schema 版本表（用于未来迁移）
@@ -61,6 +74,46 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
     INSERT OR IGNORE INTO schema_version (version, applied_at)
     VALUES (1, datetime('now'));
   `);
+
+  // 增量迁移：v2 新增列
+  await migrateV2(db);
+}
+
+async function migrateV2(db: SQLite.SQLiteDatabase): Promise<void> {
+  // 检查 version 2 是否已应用
+  const v2 = await db.getFirstAsync<{ version: number }>(
+    `SELECT version FROM schema_version WHERE version = 2`
+  );
+  if (v2) return;
+
+  // 安全地添加列（SQLite 不支持 IF NOT EXISTS 语法，用 try-catch）
+  const addColumnSafe = async (table: string, col: string, type: string) => {
+    try {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+    } catch {
+      // 列已存在，忽略
+    }
+  };
+
+  await addColumnSafe('run_records', 'vdot', 'REAL');
+  await addColumnSafe('run_records', 'cadence', 'INTEGER');
+  await addColumnSafe('user_profile', 'weekly_km', 'REAL NOT NULL DEFAULT 30');
+
+  // 创建训练计划表（如果不存在）
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS training_plan (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      race_date       TEXT NOT NULL,
+      vdot            REAL NOT NULL,
+      weekly_peak_km  REAL NOT NULL,
+      plan_json       TEXT NOT NULL DEFAULT '{}',
+      created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+  `);
+
+  await db.execAsync(
+    `INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (2, datetime('now'))`
+  );
 }
 
 export async function closeDatabase(): Promise<void> {

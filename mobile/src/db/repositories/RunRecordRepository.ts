@@ -18,8 +18,8 @@ export class SQLiteRunRecordRepository implements IRunRecordRepository {
     const result = await db.runAsync(
       `INSERT INTO run_records
         (create_time, run_date, distance, duration_sec, avg_pace, avg_hr,
-         intensity, conclusion, suggest, risk, tss, elevation_gain, temperature, rpe)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         intensity, conclusion, suggest, risk, tss, elevation_gain, temperature, rpe, vdot, cadence)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.create_time,
         record.run_date,
@@ -35,6 +35,8 @@ export class SQLiteRunRecordRepository implements IRunRecordRepository {
         record.elevation_gain ?? null,
         record.temperature ?? null,
         record.rpe ?? null,
+        record.vdot ?? null,
+        record.cadence ?? null,
       ]
     );
     return { ...record, id: result.lastInsertRowId };

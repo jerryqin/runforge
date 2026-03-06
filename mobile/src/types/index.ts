@@ -41,11 +41,13 @@ export interface RunRecord {
   conclusion: string;        // 一句话结论
   suggest: string;           // 明日建议
   risk: string;              // 风险提示
-  // 扩展字段（v2.0）
+  // 扩展字段
   tss?: number;              // 训练压力分
   elevation_gain?: number;   // 累计爬升(m)
   temperature?: number;      // 气温(℃)
   rpe?: number;              // 主观感受(1-10)
+  vdot?: number;             // 本次估算 VDOT
+  cadence?: number;          // 步频
 }
 
 // ===== 比赛计划 =====
@@ -64,6 +66,7 @@ export interface UserProfile {
   resting_hr: number;        // 静息心率
   hr_threshold: number;      // 乳酸阈值心率(LTHR)
   birth_year?: number;
+  weekly_km: number;         // 当前周跑量(km)
 }
 
 // ===== ATL/CTL/TSB =====
@@ -83,4 +86,5 @@ export interface OCRResult {
   cadence?: number;
   calories?: number;
   confidence: number;  // 0-1 识别置信度
+  raw_text?: string;   // OCR 原始文本
 }
