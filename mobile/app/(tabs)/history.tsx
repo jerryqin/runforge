@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RunSummaryCard } from '../../src/components/RunSummaryCard';
 import { Colors, FontSize, FontWeight, Spacing } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
+import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
+import { calcIntensity } from '../../src/engine/AnalysisEngine';
 import { RunRecord } from '../../src/types';
 
 export default function HistoryScreen() {
@@ -21,8 +23,18 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const data = await runRecordRepo.fetchAll();
-    setRecords(data);
+    const [data, profile] = await Promise.all([
+      runRecordRepo.fetchAll(),
+      userProfileRepo.get(),
+    ]);
+    
+    // 根据最新 max_hr 重新计算每条记录的强度
+    const updated = data.map(record => ({
+      ...record,
+      intensity: calcIntensity(record.avg_hr, profile),
+    }));
+    
+    setRecords(updated);
   }, []);
 
   useFocusEffect(useCallback(() => {

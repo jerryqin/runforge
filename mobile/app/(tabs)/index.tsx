@@ -20,7 +20,8 @@ import {
   Spacing,
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
-import { calcBodyStatus } from '../../src/engine/AnalysisEngine';
+import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
+import { calcBodyStatus, calcIntensity } from '../../src/engine/AnalysisEngine';
 import { BodyStatus, RunRecord } from '../../src/types';
 
 export default function HomeScreen() {
@@ -31,9 +32,19 @@ export default function HomeScreen() {
   const [bodyStatus, setBodyStatus] = useState<BodyStatus>(BodyStatus.NORMAL);
 
   const load = useCallback(async () => {
-    const records = await runRecordRepo.fetchRecent(7);
-    setRecentRecords(records);
-    setBodyStatus(calcBodyStatus(records));
+    const [records, profile] = await Promise.all([
+      runRecordRepo.fetchRecent(7),
+      userProfileRepo.get(),
+    ]);
+    
+    // 根据最新 max_hr 重新计算每条记录的强度
+    const updated = records.map(record => ({
+      ...record,
+      intensity: calcIntensity(record.avg_hr, profile),
+    }));
+    
+    setRecentRecords(updated);
+    setBodyStatus(calcBodyStatus(updated));
   }, []);
 
   useFocusEffect(useCallback(() => {
