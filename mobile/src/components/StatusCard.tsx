@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { BodyStatus, BodyStatusLabel } from '../../types';
-import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
+import { BodyStatus, BodyStatusLabel } from '../types';
+import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 
 interface Props {
   status: BodyStatus;

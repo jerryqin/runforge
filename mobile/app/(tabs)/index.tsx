@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -36,9 +36,9 @@ export default function HomeScreen() {
     setBodyStatus(calcBodyStatus(records));
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     load().finally(() => setLoading(false));
-  }, [load]);
+  }, [load]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

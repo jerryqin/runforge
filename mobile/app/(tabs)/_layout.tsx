@@ -1,12 +1,22 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
-import { Colors, FontSize } from '../../src/constants/theme';
+import { Colors } from '../../src/constants/theme';
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function TabIcon({
+  name,
+  focused,
+}: {
+  name: IoniconsName;
+  focused: boolean;
+}) {
   return (
-    <Text style={{ fontSize: FontSize.caption, color: focused ? Colors.primary : Colors.gray3 }}>
-      {label}
-    </Text>
+    <Ionicons
+      name={name}
+      size={26}
+      color={focused ? Colors.primary : Colors.gray3}
+    />
   );
 }
 
@@ -17,9 +27,18 @@ export default function TabsLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.gray3,
         tabBarStyle: {
-          borderTopColor: Colors.separator,
+          height: 52,
+          paddingBottom: 6,
+          paddingTop: 4,
+          borderTopColor: '#E5E5E5',
+          borderTopWidth: 0.5,
           elevation: 0,
           shadowOpacity: 0,
+          backgroundColor: Colors.white,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          marginTop: -2,
         },
         headerStyle: { backgroundColor: Colors.white },
         headerShadowVisible: false,
@@ -30,28 +49,36 @@ export default function TabsLayout() {
         options={{
           title: '首页',
           headerShown: false,
-          tabBarIcon: ({ focused }) => <TabIcon label="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="input"
         options={{
           title: '录入',
-          tabBarIcon: ({ focused }) => <TabIcon label="➕" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'add-circle' : 'add-circle-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: '历史',
-          tabBarIcon: ({ focused }) => <TabIcon label="📋" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'list' : 'list-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ focused }) => <TabIcon label="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'person' : 'person-outline'} focused={focused} />
+          ),
         }}
       />
     </Tabs>

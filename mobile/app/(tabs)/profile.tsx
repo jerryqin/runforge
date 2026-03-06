@@ -40,6 +40,17 @@ export default function ProfileScreen() {
     });
   }, []);
 
+  // 最大心率改变时，自动计算 LTHR（87% 是常用值）
+  useEffect(() => {
+    if (maxHr) {
+      const mhr = parseInt(maxHr, 10);
+      if (mhr && mhr >= 150 && mhr <= 220) {
+        const lthr = Math.round(mhr * 0.87);
+        setHrThreshold(String(lthr));
+      }
+    }
+  }, [maxHr]);
+
   const handleSave = async () => {
     const mhr = parseInt(maxHr, 10);
     const rhr = parseInt(restingHr, 10);

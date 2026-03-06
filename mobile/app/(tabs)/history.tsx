@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -25,9 +25,9 @@ export default function HistoryScreen() {
     setRecords(data);
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     load().finally(() => setLoading(false));
-  }, [load]);
+  }, [load]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

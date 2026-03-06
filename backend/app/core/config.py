@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # OpenAI（OCR v2.0 使用）
     OPENAI_API_KEY: str = ""
 
+    # 阿里云通义千问（OCR 优先使用）
+    DASHSCOPE_API_KEY: str = ""
+
     # Supabase（v2.0 引入云端DB时使用）
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""

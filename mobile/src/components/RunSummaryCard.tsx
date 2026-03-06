@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { RunRecord } from '../../types';
-import { IntensityColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
-import { formatPace } from '../../engine/AnalysisEngine';
+import { RunRecord } from '../types';
+import { IntensityColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
+import { formatPace } from '../engine/AnalysisEngine';
 
 interface Props {
   record: RunRecord;

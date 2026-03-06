@@ -72,7 +72,11 @@ export default function InputScreen() {
       if (ocrResult.run_date) setRunDate(ocrResult.run_date);
       // 切换到手动模式让用户确认
       setMode('manual');
-      Alert.alert('识别完成', `置信度 ${Math.round(ocrResult.confidence * 100)}%，请确认数据后提交`);
+      if (ocrResult.confidence === 0) {
+        Alert.alert('识别失败', ocrResult.raw_text || '请手动输入数据');
+      } else {
+        Alert.alert('识别完成', `置信度 ${Math.round(ocrResult.confidence * 100)}%，请确认数据后提交`);
+      }
     } catch (e) {
       Alert.alert('识别失败', '请手动输入数据');
       setMode('manual');
@@ -122,7 +126,7 @@ export default function InputScreen() {
       });
 
       // 跳转到详情页
-      router.replace(`/record/${saved.id}`);
+      router.push(`/record/${saved.id}`);
     } catch (e) {
       Alert.alert('保存失败', String(e));
     } finally {

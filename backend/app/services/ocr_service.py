@@ -1,7 +1,7 @@
 """
 RunForge OCR 服务
 v1.0：正则解析（处理 Keep / Apple Watch 等规则截图）
-v2.0：升级为 GPT-4o Vision（Set USE_GPT_OCR=true）
+v2.0：多模型 Vision OCR（通义千问优先，GPT-4o 备份）
 接口保持不变，切换只需改环境变量
 """
 from __future__ import annotations
@@ -22,16 +22,26 @@ logger = logging.getLogger(__name__)
 async def analyze_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> OCRResult:
     """
     统一入口：根据配置自动选择 OCR 实现
-    v1.0 → RegexOCR
-    v2.0 → GptVisionOCR（设置 OPENAI_API_KEY 后自动启用）
+    优先级：通义千问 > GPT-4o > 降级提示
     """
     settings = get_settings()
+    
+    # 优先使用通义千问
+    if settings.DASHSCOPE_API_KEY:
+        logger.info("使用通义千问 VL OCR（优先）")
+        result = await _qwen_vision_ocr(image_bytes, mime_type)
+        if result.confidence > 0:
+            return result
+        logger.warning("通义千问 OCR 失败，降级到 GPT-4o")
+    
+    # 降级到 GPT-4o
     if settings.OPENAI_API_KEY:
         logger.info("使用 GPT-4o Vision OCR")
         return await _gpt_vision_ocr(image_bytes, mime_type)
-    else:
-        logger.info("使用本地正则 OCR")
-        return _regex_ocr_not_available()
+    
+    # 都没配置
+    logger.warning("未配置任何 Vision OCR 引擎")
+    return _regex_ocr_not_available()
 
 
 # ════════════════════════════════════════════════════
@@ -189,5 +199,103 @@ async def _gpt_vision_ocr(image_bytes: bytes, mime_type: str) -> OCRResult:
         return result
 
     except Exception as e:
-        logger.error(f"GPT-4o Vision OCR 失败: {e}")
-        return OCRResult(confidence=0.0, raw_text=f"OCR 失败: {str(e)}")
+        err_str = str(e)
+        logger.error(f"GPT-4o Vision OCR 失败: {err_str}")
+        if "insufficient_quota" in err_str or "429" in err_str:
+            user_msg = "OpenAI 账户额度不足，请前往 platform.openai.com/settings/billing 充值"
+        elif "invalid_api_key" in err_str or "401" in err_str:
+            user_msg = "API Key 无效，请检查 .env 配置"
+        else:
+            user_msg = f"OCR 失败: {err_str}"
+        return OCRResult(confidence=0.0, raw_text=user_msg)
+
+
+# ════════════════════════════════════════════════════
+# v3.0：通义千问 VL OCR（优先使用）
+# ════════════════════════════════════════════════════
+async def _qwen_vision_ocr(image_bytes: bytes, mime_type: str) -> OCRResult:
+    """
+    调用阿里云通义千问 VL 识别跑步截图
+    成本更低，速度更快
+    """
+    try:
+        from dashscope import MultiModalConversation
+        import dashscope
+        import json
+        
+        settings = get_settings()
+        dashscope.api_key = settings.DASHSCOPE_API_KEY
+        
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        
+        prompt = """这是一张跑步 App 的运动记录截图。请提取以下信息，以 JSON 格式返回：
+{
+  "distance_km": 数字或null,
+  "duration_str": "HH:MM:SS" 或 null,
+  "avg_pace_str": "M'SS\"" 格式 或 null,
+  "avg_hr": 整数 或 null,
+  "run_date": "YYYY-MM-DD" 或 null,
+  "cadence": 步频整数 或 null,
+  "calories": 卡路里数字 或 null
+}
+只返回 JSON，不要其他解释。"""
+
+        messages = [{
+            'role': 'user',
+            'content': [
+                {'text': prompt},
+                {'image': f'data:{mime_type};base64,{b64}'}
+            ]
+        }]
+
+        response = MultiModalConversation.call(
+            model='qwen-vl-max',
+            messages=messages
+        )
+        
+        if response.status_code != 200 or not response.output:
+            logger.error(f"通义千问 API 请求失败: {response}")
+            return OCRResult(confidence=0.0, raw_text="通义千问 API 调用失败")
+        
+        content = response.output.choices[0].message.content[0]['text'].strip()
+        # 清理可能的 markdown 代码块
+        content = re.sub(r"^```json\s*|\s*```$", "", content, flags=re.MULTILINE)
+        data = json.loads(content)
+
+        result = OCRResult(confidence=0.95)
+        result.distance = data.get("distance_km")
+        result.duration_str = data.get("duration_str")
+        result.avg_pace_str = data.get("avg_pace_str")
+        result.avg_hr = data.get("avg_hr")
+        result.run_date = data.get("run_date")
+        result.cadence = data.get("cadence")
+        result.calories = data.get("calories")
+
+        # 转换配速字符串到秒
+        if result.avg_pace_str:
+            m = re.match(r"(\d+)'(\d{2})\"?", result.avg_pace_str)
+            if m:
+                result.avg_pace = int(m.group(1)) * 60 + int(m.group(2))
+
+        # 转换时长字符串到秒
+        if result.duration_str:
+            parts = result.duration_str.split(":")
+            if len(parts) == 3:
+                result.duration_sec = (
+                    int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                )
+
+        logger.info(f"通义千问 OCR 成功，置信度: {result.confidence}")
+        return result
+
+    except ImportError:
+        logger.warning("dashscope SDK 未安装，无法使用通义千问")
+        return OCRResult(confidence=0.0, raw_text="请安装 dashscope SDK: pip install dashscope")
+    except Exception as e:
+        err_str = str(e)
+        logger.error(f"通义千问 Vision OCR 失败: {err_str}")
+        if "Invalid API-key" in err_str or "InvalidApiKey" in err_str:
+            user_msg = "通义千问 API Key 无效，请检查 DASHSCOPE_API_KEY"
+        else:
+            user_msg = f"通义千问 OCR 失败: {err_str}"
+        return OCRResult(confidence=0.0, raw_text=user_msg)
