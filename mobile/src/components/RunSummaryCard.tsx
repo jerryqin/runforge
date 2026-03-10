@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { RunRecord } from '../types';
+import { RunRecord, IntensityLabel } from '../types';
 import { IntensityColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { formatPace } from '../engine/AnalysisEngine';
 
@@ -24,14 +24,14 @@ export function RunSummaryCard({ record, onPress, compact = false }: Props) {
         <Text style={styles.date}>{record.run_date}</Text>
         <View style={[styles.badge, { backgroundColor: intensityColor + '20' }]}>
           <Text style={[styles.badgeText, { color: intensityColor }]}>
-            {record.conclusion.split('，')[0]}
+            {IntensityLabel[record.intensity]}
           </Text>
         </View>
       </View>
 
       {/* 核心数据行 */}
       <View style={styles.metrics}>
-        <MetricItem label="距离" value={`${record.distance}km`} large />
+        <MetricItem label="距离" value={`${record.distance.toFixed(2)}km`} large />
         <MetricItem label="配速" value={formatPace(record.avg_pace)} />
         <MetricItem label="心率" value={`${record.avg_hr}bpm`} />
       </View>

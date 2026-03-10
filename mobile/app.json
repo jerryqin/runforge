@@ -16,6 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.jerryqin.runforge"
     },
+    "newArchEnabled": false,
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -23,14 +24,24 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.jerryqin.runforge"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "允许 RunForge 读取您的健康和健身数据，包括跑步记录、心率等",
+          "healthUpdatePermission": "允许 RunForge 将训练数据写入健康 App",
+          "isClinicalDataEnabled": false
+        }
+      ],
+      "./plugins/withHealthKit"
     ]
   }
 }

@@ -84,7 +84,7 @@ export default function RecordDetailScreen() {
 
         {/* 核心指标 */}
         <View style={styles.metricsGrid}>
-          <BigMetric label="距离" value={`${record.distance}`} unit="km" />
+          <BigMetric label="距离" value={`${record.distance.toFixed(2)}`} unit="km" />
           <BigMetric label="配速" value={formatPace(record.avg_pace)} unit="/km" />
           <BigMetric label="心率" value={`${record.avg_hr}`} unit="bpm" />
           <BigMetric label="时长" value={formatDuration(record.duration_sec)} />

@@ -9,8 +9,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   BorderRadius,
   Colors,
@@ -19,6 +21,7 @@ import {
   Spacing,
 } from '../../src/constants/theme';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
+import { backupRepo } from '../../src/db/repositories/BackupRepository';
 import { UserProfile } from '../../src/types';
 
 export default function ProfileScreen() {
@@ -30,6 +33,7 @@ export default function ProfileScreen() {
   const [weeklyKm, setWeeklyKm] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   useEffect(() => {
     userProfileRepo.get().then((p) => {
@@ -86,6 +90,58 @@ export default function ProfileScreen() {
     const est = 220 - age;
     setMaxHr(String(est));
     Alert.alert('已估算', `基于年龄（${age}岁）估算最大心率为 ${est}。\n建议后续以实测值替换。`);
+  };
+
+  // 导出备份
+  const handleExportBackup = async () => {
+    setBackupLoading(true);
+    try {
+      await backupRepo.shareBackup();
+      Alert.alert(
+        '备份成功',
+        '数据已导出，请保存到安全位置（如 iCloud Drive）。\n\n删除 App 前请务必备份数据！'
+      );
+    } catch (e) {
+      Alert.alert('导出失败', String(e));
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  // 导入备份
+  const handleImportBackup = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      setBackupLoading(true);
+      const { imported, skipped } = await backupRepo.importFromFile(result.assets[0].uri);
+      
+      Alert.alert(
+        '导入完成',
+        `成功导入 ${imported} 条记录\n跳过 ${skipped} 条重复记录`,
+        [{ text: '确定' }]
+      );
+
+      // 刷新数据
+      const p = await userProfileRepo.get();
+      setProfile(p);
+      setMaxHr(String(p.max_hr));
+      setRestingHr(String(p.resting_hr));
+      setHrThreshold(String(p.hr_threshold));
+      setBirthYear(p.birth_year ? String(p.birth_year) : '');
+      setWeeklyKm(p.weekly_km ? String(p.weekly_km) : '30');
+    } catch (e) {
+      Alert.alert('导入失败', String(e));
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   return (
@@ -161,6 +217,48 @@ export default function ProfileScreen() {
               {saved ? '✓ 已保存' : saving ? '保存中...' : '保存档案'}
             </Text>
           </TouchableOpacity>
+
+          {/* 数据备份 */}
+          <View style={styles.backupSection}>
+            <Text style={styles.backupTitle}>💾 数据备份</Text>
+            <Text style={styles.backupHint}>
+              删除 App 会清除所有本地数据，请定期备份！
+            </Text>
+            
+            <View style={styles.backupBtns}>
+              <TouchableOpacity
+                style={styles.backupBtn}
+                onPress={handleExportBackup}
+                disabled={backupLoading}
+                activeOpacity={0.7}
+              >
+                {backupLoading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <Text style={styles.backupBtnIcon}>📤</Text>
+                    <Text style={styles.backupBtnText}>导出备份</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.backupBtn}
+                onPress={handleImportBackup}
+                disabled={backupLoading}
+                activeOpacity={0.7}
+              >
+                {backupLoading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <Text style={styles.backupBtnIcon}>📥</Text>
+                    <Text style={styles.backupBtnText}>导入备份</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -233,4 +331,44 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: FontSize.h3, fontWeight: FontWeight.semibold, color: Colors.white },
+  backupSection: {
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  backupTitle: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  },
+  backupHint: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 18,
+  },
+  backupBtns: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  backupBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.white,
+  },
+  backupBtnIcon: { fontSize: FontSize.h3 },
+  backupBtnText: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primary,
+  },
 });

@@ -8,7 +8,7 @@
  * 在 Expo managed workflow 下，可通过 expo-dev-client 使用。
  */
 
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 
 export interface HealthWorkout {
   sourceApp: string;
@@ -32,20 +32,53 @@ export enum HealthStatus {
 let _healthModule: any = null;
 
 /**
- * 尝试动态加载 Health 模块
+ * 获取 AppleHealthKit 原生模块
+ * 
+ * react-native-health 内部使用 Object.assign({}, NativeModules.AppleHealthKit, ...)
+ * 但 NativeModules 的方法可能在原型上，Object.assign 无法复制。
+ * 所以直接使用 NativeModules.AppleHealthKit，并从 react-native-health 获取 Constants。
  */
 function tryLoadModule(): any {
   if (_healthModule !== undefined && _healthModule !== null) return _healthModule;
 
   try {
     if (Platform.OS === 'ios') {
-      // react-native-health
-      _healthModule = require('react-native-health');
-    } else if (Platform.OS === 'android') {
-      // react-native-health-connect
-      _healthModule = require('react-native-health-connect');
+      // 直接访问原生模块，确保所有原生方法可用
+      const nativeModule = NativeModules.AppleHealthKit;
+      
+      // 从 react-native-health 获取 Constants（Activities、Permissions 等枚举）
+      let Constants = {};
+      try {
+        const rnHealth = require('react-native-health');
+        Constants = rnHealth?.Constants || rnHealth?.default?.Constants || {};
+      } catch {
+        // Constants 获取失败时使用硬编码备用
+        const { Permissions } = require('react-native-health');
+        Constants = { Permissions };
+      }
+
+      if (nativeModule) {
+        _healthModule = { ...nativeModule, Constants };
+        // 绑定原生方法的 this 上下文
+        const methods = ['initHealthKit', 'isAvailable', 'getSamples', 'getWorkoutSamples',
+          'getAnchoredWorkouts', 'getHeartRateSamples', 'getActiveEnergyBurned', 'getDistanceWalkingRunning'];
+        for (const method of methods) {
+          if (nativeModule[method]) {
+            _healthModule[method] = nativeModule[method].bind(nativeModule);
+          }
+        }
+        console.log('[HealthService] Loaded via NativeModules.AppleHealthKit');
+        console.log('[HealthService] Available methods:', 
+          methods.filter(m => typeof _healthModule[m] === 'function').join(', '));
+      } else {
+        // NativeModules 回退到 react-native-health 包
+        const rnHealth = require('react-native-health');
+        _healthModule = rnHealth?.default || rnHealth;
+        console.log('[HealthService] NativeModules.AppleHealthKit not found, using package');
+      }
     }
-  } catch {
+  } catch (e) {
+    console.warn('[HealthService] Module load failed:', e);
     _healthModule = null;
   }
   return _healthModule;
@@ -76,39 +109,50 @@ export async function requestHealthPermissions(): Promise<boolean> {
 
   try {
     if (Platform.OS === 'ios') {
-      const { default: AppleHealthKit, HealthKitPermissions } = mod;
-      const permissions: typeof HealthKitPermissions = {
+      const HealthKit = mod;
+      
+      console.log('[HealthService] HealthKit loaded:', typeof HealthKit);
+      console.log('[HealthService] initHealthKit:', typeof HealthKit.initHealthKit);
+      console.log('[HealthService] getSamples:', typeof HealthKit.getSamples);
+      console.log('[HealthService] NativeModules.AppleHealthKit:', 
+        typeof NativeModules.AppleHealthKit);
+      
+      if (!HealthKit.initHealthKit) {
+        console.error('[HealthService] Native module not linked!');
+        return false;
+      }
+      
+      // 权限 ID 使用字符串常量，不依赖 Constants 对象
+      const permissions = {
         permissions: {
-          read: [
-            AppleHealthKit.Constants?.Permissions?.DistanceWalkingRunning,
-            AppleHealthKit.Constants?.Permissions?.HeartRate,
-            AppleHealthKit.Constants?.Permissions?.Workout,
-            AppleHealthKit.Constants?.Permissions?.ActiveEnergyBurned,
-          ].filter(Boolean),
-          write: [],
+          read: ['DistanceWalkingRunning', 'HeartRate', 'Workout', 'ActiveEnergyBurned'],
+          write: [] as string[],
         },
       };
 
+      console.log('[HealthService] Requesting permissions...');
+
       return new Promise<boolean>((resolve) => {
-        AppleHealthKit.initHealthKit(permissions, (err: any) => {
+        HealthKit.initHealthKit(permissions, (err: any) => {
+          console.log('[HealthService] Permission result:', err ? `denied: ${JSON.stringify(err)}` : 'granted');
           resolve(!err);
         });
       });
     }
 
-    // Android: Health Connect
-    if (Platform.OS === 'android') {
-      const { initialize, requestPermission } = mod;
-      const inited = await initialize();
-      if (!inited) return false;
+    // Android: Health Connect 暂未集成
+    // if (Platform.OS === 'android') {
+    //   const { initialize, requestPermission } = mod;
+    //   const inited = await initialize();
+    //   if (!inited) return false;
 
-      const granted = await requestPermission([
-        { accessType: 'read', recordType: 'ExerciseSession' },
-        { accessType: 'read', recordType: 'HeartRate' },
-        { accessType: 'read', recordType: 'Distance' },
-      ]);
-      return granted.length > 0;
-    }
+    //   const granted = await requestPermission([
+    //     { accessType: 'read', recordType: 'ExerciseSession' },
+    //     { accessType: 'read', recordType: 'HeartRate' },
+    //     { accessType: 'read', recordType: 'Distance' },
+    //   ]);
+    //   return granted.length > 0;
+    // }
 
     return false;
   } catch (e) {
@@ -118,23 +162,49 @@ export async function requestHealthPermissions(): Promise<boolean> {
 }
 
 /**
- * 获取指定天数内的跑步记录
+ * 获取跑步记录
+ * @param options.startDate 起始日期（增量同步时传入上次同步时间）
+ * @param options.days      若未传 startDate，则以 days 前为起点（默认 3650）
  */
-export async function fetchRunningWorkouts(days: number = 30): Promise<HealthWorkout[]> {
+export async function fetchRunningWorkouts(
+  options: { startDate?: Date; days?: number } = {}
+): Promise<HealthWorkout[]> {
   const mod = tryLoadModule();
-  if (!mod) return [];
+  if (!mod) {
+    console.warn('[HealthService] Module not loaded');
+    return [];
+  }
 
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  let HealthKit = mod;
+  
+  // 如果包装后的对象缺少方法，直接使用 NativeModules
+  if (!HealthKit.getSamples && NativeModules.AppleHealthKit?.getSamples) {
+    console.warn('[HealthService] Using NativeModules.AppleHealthKit directly');
+    HealthKit = NativeModules.AppleHealthKit;
+  }
+
+  if (!HealthKit.getSamples) {
+    console.error('[HealthService] getSamples not found. The native module is not properly linked.');
+    return [];
+  }
+
+  const startDate = options.startDate
+    ? new Date(options.startDate)
+    : (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - (options.days ?? 3650));
+        return d;
+      })();
   const endDate = new Date();
 
   try {
     if (Platform.OS === 'ios') {
-      return await fetchIOSWorkouts(mod, startDate, endDate);
+      return await fetchIOSWorkouts(HealthKit, startDate, endDate);
     }
-    if (Platform.OS === 'android') {
-      return await fetchAndroidWorkouts(mod, startDate, endDate);
-    }
+    // Android 暂未集成
+    // if (Platform.OS === 'android') {
+    //   return await fetchAndroidWorkouts(mod, startDate, endDate);
+    // }
   } catch (e) {
     console.warn('[HealthService] Fetch workouts failed:', e);
   }
@@ -142,46 +212,186 @@ export async function fetchRunningWorkouts(days: number = 30): Promise<HealthWor
   return [];
 }
 
+/**
+ * 支持的运动类型
+ */
+const SUPPORTED_ACTIVITY_NAMES = [
+  'Running',         // 户外跑步
+  'Indoor Run',      // 室内跑步
+  'Treadmill',       // 跑步机
+];
+
 async function fetchIOSWorkouts(
-  mod: any,
+  HealthKit: any,
   startDate: Date,
   endDate: Date
 ): Promise<HealthWorkout[]> {
-  const { default: AppleHealthKit } = mod;
+  console.log('[HealthService] fetchIOSWorkouts - using getAnchoredWorkouts');
 
+  // 优先使用 getAnchoredWorkouts（专为 workout 设计，能返回全部历史记录）
+  // 若不可用则回退到 getSamples
+  const useAnchored = typeof HealthKit?.getAnchoredWorkouts === 'function';
+  console.log('[HealthService] getAnchoredWorkouts available:', useAnchored);
+
+  if (useAnchored) {
+    return fetchWithAnchoredWorkouts(HealthKit, startDate, endDate);
+  }
+  return fetchWithGetSamples(HealthKit, startDate, endDate);
+}
+
+async function fetchWithAnchoredWorkouts(
+  HealthKit: any,
+  startDate: Date,
+  endDate: Date
+): Promise<HealthWorkout[]> {
   return new Promise((resolve) => {
     const opts = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      type: 'Running',
+      type: 'Workout',
     };
 
-    AppleHealthKit.getWorkoutSamples(opts, (err: any, results: any[]) => {
-      if (err || !results) {
+    console.log('[HealthService] getAnchoredWorkouts opts:', opts);
+
+    HealthKit.getAnchoredWorkouts(opts, async (err: any, results: any) => {
+      if (err) {
+        console.warn('[HealthService] getAnchoredWorkouts error:', err);
         resolve([]);
         return;
       }
 
-      const workouts: HealthWorkout[] = results
-        .filter((w: any) => w.activityName === 'Running')
-        .map((w: any) => {
-          const start = new Date(w.start);
-          const end = new Date(w.end);
-          const durationSec = (end.getTime() - start.getTime()) / 1000;
+      const rawList: any[] = results?.data || results || [];
+      console.log('[HealthService] Raw results count:', rawList.length);
 
-          return {
-            sourceApp: w.sourceName || 'Apple Health',
-            startDate: w.start,
-            endDate: w.end,
-            distanceKm: (w.distance || 0) / 1000, // meters → km
-            durationSec,
-            avgHeartRate: undefined,
-            maxHeartRate: undefined,
-            calories: w.calories,
-          };
+      // 打印所有原始记录的 activityName，便于调试
+      rawList.forEach((w: any, i: number) => {
+        console.log(`  [${i}] activityName="${w.activityName}" activityId=${w.activityId} source="${w.sourceName}" start=${w.start} dist=${w.distance}`);
+      });
+
+      const workouts: HealthWorkout[] = [];
+
+      for (const w of rawList) {
+        const activityName: string = w.activityName || '';
+        if (!SUPPORTED_ACTIVITY_NAMES.includes(activityName)) {
+          console.log(`  ❌ Skipped activityName="${activityName}" activityId=${w.activityId}`);
+          continue;
+        }
+
+        // getAnchoredWorkouts 直接提供 duration（秒），无需自己算
+        const durationSec: number =
+          typeof w.duration === 'number' && w.duration > 0
+            ? w.duration
+            : (new Date(w.end).getTime() - new Date(w.start).getTime()) / 1000;
+
+        console.log(`  ✅ ${activityName} | ${w.sourceName} | dist=${w.distance}mi | dur=${durationSec}s`);
+
+        const heartRateData = await getAverageHeartRate(
+          HealthKit,
+          w.start,
+          w.end,
+        );
+
+        workouts.push({
+          sourceApp: w.sourceName || 'Apple Health',
+          startDate: w.start,
+          endDate: w.end,
+          distanceKm: (w.distance || 0) * 1.60934,
+          durationSec,
+          avgHeartRate: heartRateData.average,
+          maxHeartRate: heartRateData.max,
+          calories: w.calories,
         });
+      }
 
+      console.log(`[HealthService] Total workouts found: ${workouts.length}`);
       resolve(workouts);
+    });
+  });
+}
+
+async function fetchWithGetSamples(
+  HealthKit: any,
+  startDate: Date,
+  endDate: Date
+): Promise<HealthWorkout[]> {
+  return new Promise((resolve) => {
+    const opts = {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      type: 'Workout',
+      ascending: false,
+    };
+
+    HealthKit.getSamples(opts, async (err: any, results: any[]) => {
+      if (err) {
+        console.warn('[HealthService] getSamples error:', err);
+        resolve([]);
+        return;
+      }
+
+      const rawList: any[] = results || [];
+      console.log('[HealthService] getSamples raw count:', rawList.length);
+
+      const workouts: HealthWorkout[] = [];
+
+      for (const w of rawList) {
+        const activityName: string = w.activityName || '';
+        if (!SUPPORTED_ACTIVITY_NAMES.includes(activityName)) continue;
+
+        const start = new Date(w.start);
+        const end = new Date(w.end);
+        const durationSec = (end.getTime() - start.getTime()) / 1000;
+
+        const heartRateData = await getAverageHeartRate(
+          HealthKit, w.start, w.end,
+        );
+
+        workouts.push({
+          sourceApp: w.sourceName || 'Apple Health',
+          startDate: w.start,
+          endDate: w.end,
+          distanceKm: (w.distance || 0) * 1.60934,
+          durationSec,
+          avgHeartRate: heartRateData.average,
+          maxHeartRate: heartRateData.max,
+          calories: w.calories,
+        });
+      }
+
+      console.log(`[HealthService] Total workouts found: ${workouts.length}`);
+      resolve(workouts);
+    });
+  });
+}
+
+/**
+ * 获取指定时段的平均/最大心率
+ */
+async function getAverageHeartRate(
+  HealthKit: any,
+  startDate: string,
+  endDate: string
+): Promise<{ average?: number; max?: number }> {
+  return new Promise((resolve) => {
+    const opts = {
+      startDate,
+      endDate,
+      ascending: false,
+      limit: 1000, // 最多获取1000个心率样本
+    };
+
+    HealthKit.getHeartRateSamples(opts, (err: any, results: any[]) => {
+      if (err || !results || results.length === 0) {
+        resolve({ average: undefined, max: undefined });
+        return;
+      }
+
+      const heartRates = results.map((r: any) => r.value);
+      const sum = heartRates.reduce((a: number, b: number) => a + b, 0);
+      const average = Math.round(sum / heartRates.length);
+      const max = Math.max(...heartRates);
+
+      resolve({ average, max });
     });
   });
 }
