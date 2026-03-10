@@ -222,15 +222,15 @@ export default function ProfileScreen() {
 
           <View style={styles.reminderSection}>
             <Text style={styles.reminderTitle}>提醒与召回</Text>
-            <Text style={styles.reminderHint}>先预留提醒设置入口，下一阶段可接入每日训练提醒与周报提醒。</Text>
+            <Text style={styles.reminderHint}>已支持每日训练提醒，可在固定时间召回用户回来看今日行动。</Text>
             <TouchableOpacity
               style={styles.reminderBtn}
               onPress={() => router.push('/reminder-settings')}
               activeOpacity={0.8}
             >
               <View>
-                <Text style={styles.reminderBtnLabel}>🔔 提醒设置（即将上线）</Text>
-                <Text style={styles.reminderBtnDesc}>先预留入口，后续可配置训练提醒、恢复提醒和周报提醒。</Text>
+                <Text style={styles.reminderBtnLabel}>🔔 每日训练提醒</Text>
+                <Text style={styles.reminderBtnDesc}>可开启真实本地通知，并设置固定提醒时间。</Text>
               </View>
               <Text style={styles.toolArrow}>›</Text>
             </TouchableOpacity>

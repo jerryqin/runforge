@@ -1,8 +1,26 @@
+import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Colors } from '../src/constants/theme';
+import { configureReminderChannel } from '../src/services/ReminderService';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
+  useEffect(() => {
+    configureReminderChannel().catch((error) => {
+      console.warn('[Reminder] failed to configure channel', error);
+    });
+  }, []);
+
   return (
     <>
       <StatusBar style="dark" />
