@@ -39,7 +39,7 @@ export interface RunRecord {
   avg_hr: number;            // 平均心率
   intensity: Intensity;
   conclusion: string;        // 一句话结论
-  suggest: string;           // 明日建议
+  suggest: string;           // 明日行动
   risk: string;              // 风险提示
   // 扩展字段
   tss?: number;              // 训练压力分

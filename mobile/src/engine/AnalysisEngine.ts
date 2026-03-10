@@ -73,7 +73,7 @@ export function buildConclusion(intensity: Intensity): string {
   return map[intensity];
 }
 
-// ===== 明日建议 =====
+// ===== 明日行动 =====
 export function buildSuggest(
   intensity: Intensity,
   distance: number,

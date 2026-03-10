@@ -27,6 +27,14 @@ export default function RootLayout() {
           name="training-plan"
           options={{ title: '周期化训练计划', headerBackTitle: '返回' }}
         />
+        <Stack.Screen
+          name="training-feedback"
+          options={{ title: '训练反馈', headerBackTitle: '返回' }}
+        />
+        <Stack.Screen
+          name="reminder-settings"
+          options={{ title: '提醒设置', headerBackTitle: '返回' }}
+        />
       </Stack>
     </>
   );

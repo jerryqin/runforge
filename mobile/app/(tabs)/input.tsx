@@ -24,6 +24,7 @@ import {
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
 import { analyze, parseDuration } from '../../src/engine/AnalysisEngine';
+import { buildTrainingMomentum, buildWeeklyImpact, calcWeeklyProgress } from '../../src/engine/RetentionEngine';
 import { ocrEngine } from '../../src/services/OCRService';
 import { useHealthData } from '../../src/services/useHealthData';
 import { HealthStatus, HealthWorkout } from '../../src/services/HealthService';
@@ -102,6 +103,15 @@ export default function InputScreen() {
     new Date().toISOString().split('T')[0]
   );
   const [submitting, setSubmitting] = useState(false);
+
+  const resetManualForm = useCallback(() => {
+    setDistance('');
+    setDuration('');
+    setAvgHr('');
+    setRpe('');
+    setSelectedWorkout(null);
+    setRunDate(new Date().toISOString().split('T')[0]);
+  }, []);
 
   // ===== OCR 图片导入 =====
   const handlePickImage = async () => {
@@ -338,8 +348,25 @@ export default function InputScreen() {
         rpe: output.rpe,
       });
 
-      // 跳转到详情页
-      router.push(`/record/${saved.id}`);
+      const recordsAfterSave = await runRecordRepo.fetchAll();
+      const weeklyProgress = calcWeeklyProgress(recordsAfterSave, profile.weekly_km ?? 30);
+      const weeklyImpact = buildWeeklyImpact(weeklyProgress);
+      const momentum = buildTrainingMomentum(saved, weeklyProgress);
+
+      router.push({
+        pathname: '/training-feedback',
+        params: {
+          id: String(saved.id),
+          conclusion: output.conclusion,
+          suggest: output.suggest,
+          risk: output.risk || '',
+          weeklyImpact,
+          momentum,
+        },
+      });
+
+      resetManualForm();
+      setMode(selectedWorkout ? 'health' : 'manual');
     } catch (e) {
       Alert.alert('保存失败', String(e));
     } finally {
@@ -527,7 +554,7 @@ export default function InputScreen() {
               {/* RPE 主观疲劳评分 */}
               <View style={styles.rpeContainer}>
                 <Text style={styles.fieldLabel}>主观疲劳 RPE（可选）</Text>
-                <Text style={styles.rpeHint}>1=非常轻松  5=适中  10=筍疲力竭</Text>
+                <Text style={styles.rpeHint}>1=非常轻松  5=适中  10=筋疲力竭</Text>
                 <View style={styles.rpeRow}>
                   {[1,2,3,4,5,6,7,8,9,10].map(n => (
                     <TouchableOpacity

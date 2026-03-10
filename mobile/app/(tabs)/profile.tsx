@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -25,6 +26,7 @@ import { backupRepo } from '../../src/db/repositories/BackupRepository';
 import { UserProfile } from '../../src/types';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [maxHr, setMaxHr] = useState('');
   const [restingHr, setRestingHr] = useState('');
@@ -218,6 +220,51 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
 
+          <View style={styles.reminderSection}>
+            <Text style={styles.reminderTitle}>提醒与召回</Text>
+            <Text style={styles.reminderHint}>先预留提醒设置入口，下一阶段可接入每日训练提醒与周报提醒。</Text>
+            <TouchableOpacity
+              style={styles.reminderBtn}
+              onPress={() => router.push('/reminder-settings')}
+              activeOpacity={0.8}
+            >
+              <View>
+                <Text style={styles.reminderBtnLabel}>🔔 提醒设置（即将上线）</Text>
+                <Text style={styles.reminderBtnDesc}>先预留入口，后续可配置训练提醒、恢复提醒和周报提醒。</Text>
+              </View>
+              <Text style={styles.toolArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.toolsSection}>
+            <Text style={styles.toolsTitle}>训练工具</Text>
+            <Text style={styles.toolsHint}>低频功能先收纳到这里，需要时再进入。</Text>
+
+            <TouchableOpacity
+              style={styles.toolItem}
+              onPress={() => router.push('/training-plan')}
+              activeOpacity={0.8}
+            >
+              <View>
+                <Text style={styles.toolLabel}>📅 训练计划</Text>
+                <Text style={styles.toolDesc}>生成比赛周期训练安排，适合赛季规划时使用。</Text>
+              </View>
+              <Text style={styles.toolArrow}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toolItem}
+              onPress={() => router.push('/race-assistant')}
+              activeOpacity={0.8}
+            >
+              <View>
+                <Text style={styles.toolLabel}>🏁 比赛助手</Text>
+                <Text style={styles.toolDesc}>设置目标完赛时间，查看赛前与比赛日策略。</Text>
+              </View>
+              <Text style={styles.toolArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* 数据备份 */}
           <View style={styles.backupSection}>
             <Text style={styles.backupTitle}>💾 数据备份</Text>
@@ -331,6 +378,86 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: FontSize.h3, fontWeight: FontWeight.semibold, color: Colors.white },
+  reminderSection: {
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  reminderTitle: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  },
+  reminderHint: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 18,
+  },
+  reminderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  reminderBtnLabel: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.black,
+  },
+  reminderBtnDesc: {
+    marginTop: 2,
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 18,
+    maxWidth: 240,
+  },
+  toolsSection: {
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  toolsTitle: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  },
+  toolsHint: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 18,
+  },
+  toolItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  toolLabel: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.black,
+  },
+  toolDesc: {
+    marginTop: 2,
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 18,
+    maxWidth: 240,
+  },
+  toolArrow: {
+    fontSize: FontSize.h2,
+    color: Colors.gray3,
+  },
   backupSection: {
     marginTop: Spacing.lg,
     padding: Spacing.md,

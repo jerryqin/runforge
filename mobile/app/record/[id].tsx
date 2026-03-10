@@ -101,7 +101,7 @@ export default function RecordDetailScreen() {
 
         {/* 分析结论 */}
         <AnalysisBlock title="本次总结" content={record.conclusion} />
-        <AnalysisBlock title="明日建议" content={record.suggest} />
+        <AnalysisBlock title="明日行动" content={record.suggest} />
         {record.risk ? (
           <AnalysisBlock title="风险提示" content={record.risk} warning />
         ) : null}
