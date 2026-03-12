@@ -29,6 +29,8 @@ import { ocrEngine } from '../../src/services/OCRService';
 import { useHealthData } from '../../src/services/useHealthData';
 import { HealthStatus, HealthWorkout } from '../../src/services/HealthService';
 
+const LOCAL_OCR_ENABLED = false;
+
 type InputMode = 'health' | 'ocr' | 'manual';
 
 export default function InputScreen() {
@@ -93,6 +95,12 @@ export default function InputScreen() {
   useEffect(() => {
     healthData.checkAvailability();
   }, []);
+
+  useEffect(() => {
+    if (!LOCAL_OCR_ENABLED && mode === 'ocr') {
+      setMode('manual');
+    }
+  }, [mode]);
 
   // 表单字段
   const [distance, setDistance] = useState('');
@@ -376,14 +384,16 @@ export default function InputScreen() {
           {/* 模式切换 */}
           <View style={styles.modeSwitch}>
             <ModeTab label="🍎 健康数据" active={mode === 'health'} onPress={() => setMode('health')} />
-            <ModeTab label="📷 本地识别" active={mode === 'ocr'} onPress={() => setMode('ocr')} />
+            {LOCAL_OCR_ENABLED ? (
+              <ModeTab label="📷 本地识别" active={mode === 'ocr'} onPress={() => setMode('ocr')} />
+            ) : null}
             <ModeTab label="✏️ 手动" active={mode === 'manual'} onPress={() => setMode('manual')} />
           </View>
 
           <View style={styles.stageOneCard}>
             <Text style={styles.stageOneTitle}>阶段 1：本地优先测试</Text>
             <Text style={styles.stageOneText}>
-              当前版本聚焦“健康数据导入 + 本地 OCR + 手动确认 + 每周反馈”这条核心链路，图片仅在本机识别，不上传到服务端。
+              当前 TestFlight 版本聚焦“健康数据导入 + 手动录入 + 每周反馈”这条核心链路。本地识别能力暂时隐藏，待稳定后再恢复开放。
             </Text>
           </View>
 
@@ -413,8 +423,8 @@ export default function InputScreen() {
                       {healthData.statusMessage || '读取全部历史跑步记录'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setMode('ocr')}>
-                    <Text style={styles.manualLink}>或使用本地图片识别 →</Text>
+                  <TouchableOpacity onPress={() => setMode('manual')}>
+                    <Text style={styles.manualLink}>或直接手动输入 →</Text>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -495,7 +505,7 @@ export default function InputScreen() {
             </View>
           )}
 
-          {mode === 'ocr' && (
+          {LOCAL_OCR_ENABLED && mode === 'ocr' && (
             <View style={styles.ocrArea}>
               {ocrLoading ? (
                 <View style={styles.ocrLoading}>

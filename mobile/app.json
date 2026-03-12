@@ -14,7 +14,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jerryqin.runforge"
+      "bundleIdentifier": "com.jerryqin.runforge",
+      "buildNumber": "2",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "允许 RunForge 访问你的照片，用于选择跑步截图或导入训练相关文件。",
+        "NSCameraUsageDescription": "允许 RunForge 使用相机拍摄训练相关截图或图片。"
+      }
     },
     "newArchEnabled": false,
     "android": {
