@@ -19,6 +19,7 @@ import {
 } from '../src/constants/theme';
 import { runRecordRepo } from '../src/db/repositories/RunRecordRepository';
 import { formatDuration, formatPace } from '../src/engine/AnalysisEngine';
+import { getWeeklyContext } from '../src/engine/RetentionEngine';
 import { Intensity, IntensityLabel, RunRecord } from '../src/types';
 
 export default function TrainingFeedbackScreen() {
@@ -56,36 +57,42 @@ export default function TrainingFeedbackScreen() {
 
   const intensity = (record?.intensity as Intensity | undefined) ?? Intensity.NORMAL;
   const intensityColor = IntensityColors[intensity] ?? Colors.primary;
+  const weeklyContext = getWeeklyContext(record?.run_date ?? new Date());
+  const shouldShowFeedbackBlocks = record ? isCurrentWeekRecord(record.run_date) : false;
   const successText = typeof momentum === 'string' && momentum.length > 0
     ? momentum
-    : '系统已将这次训练计入你的本周推进。';
+    : `系统已将这次训练计入${weeklyContext.weekLabel}推进。`;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.heroCard}>
-          <View style={styles.heroSuccessBadge}>
-            <Text style={styles.heroSuccessIcon}>✓</Text>
+        {shouldShowFeedbackBlocks ? (
+          <View style={styles.heroCard}>
+            <View style={styles.heroSuccessBadge}>
+              <Text style={styles.heroSuccessIcon}>✓</Text>
+            </View>
+            <Text style={styles.heroEyebrow}>训练反馈</Text>
+            <Text style={styles.heroTitle}>{weeklyContext.feedbackTitle}</Text>
+            <Text style={styles.heroBody}>
+              {typeof conclusion === 'string' && conclusion.length > 0
+                ? conclusion
+                : '系统已根据你的训练表现更新后续建议。'}
+            </Text>
+            <View style={styles.heroMomentumCard}>
+              <Text style={styles.heroMomentumLabel}>本次推进</Text>
+              <Text style={styles.heroMomentumText}>{successText}</Text>
+            </View>
           </View>
-          <Text style={styles.heroEyebrow}>训练反馈</Text>
-          <Text style={styles.heroTitle}>今天这次训练，已经计入你的本周推进</Text>
-          <Text style={styles.heroBody}>
-            {typeof conclusion === 'string' && conclusion.length > 0
-              ? conclusion
-              : '系统已根据你的训练表现更新后续建议。'}
-          </Text>
-          <View style={styles.heroMomentumCard}>
-            <Text style={styles.heroMomentumLabel}>本次推进</Text>
-            <Text style={styles.heroMomentumText}>{successText}</Text>
-          </View>
-        </View>
+        ) : null}
 
         {record ? (
           <View style={styles.metricsCard}>
             <View style={styles.metricsHeader}>
               <View style={styles.metricsHeaderText}>
                 <Text style={styles.metricsDate}>{record.run_date}</Text>
-                <Text style={styles.metricsSubtitle}>这次训练已计入你的本周推进</Text>
+                <Text style={styles.metricsSubtitle}>
+                  {shouldShowFeedbackBlocks ? weeklyContext.feedbackSubtitle : '历史训练记录'}
+                </Text>
               </View>
               <View style={[styles.intensityBadge, { backgroundColor: intensityColor + '20' }]}>
                 <Text style={[styles.intensityText, { color: intensityColor }]}> 
@@ -103,13 +110,15 @@ export default function TrainingFeedbackScreen() {
           </View>
         ) : null}
 
-        <Block title="明日行动" content={typeof suggest === 'string' ? suggest : '按首页今日行动继续推进训练。'} />
-
-        {typeof weeklyImpact === 'string' && weeklyImpact.length > 0 ? (
-          <Block title="本周推进" content={weeklyImpact} accent="primary" />
+        {shouldShowFeedbackBlocks ? (
+          <Block title="明日行动" content={typeof suggest === 'string' ? suggest : '按首页今日行动继续推进训练。'} />
         ) : null}
 
-        {typeof risk === 'string' && risk.length > 0 ? (
+        {shouldShowFeedbackBlocks && typeof weeklyImpact === 'string' && weeklyImpact.length > 0 ? (
+          <Block title={weeklyContext.title} content={weeklyImpact} accent="primary" />
+        ) : null}
+
+        {shouldShowFeedbackBlocks && typeof risk === 'string' && risk.length > 0 ? (
           <Block title="风险提示" content={risk} accent="warning" />
         ) : null}
 
@@ -172,6 +181,31 @@ function Block({
       <Text style={styles.blockContent}>{content}</Text>
     </View>
   );
+}
+
+function isCurrentWeekRecord(runDate: string) {
+  const recordDate = parseRunDate(runDate);
+  const now = new Date();
+  const currentWeekStart = getWeekStart(now);
+  const recordWeekStart = getWeekStart(recordDate);
+  return currentWeekStart.getTime() === recordWeekStart.getTime();
+}
+
+function parseRunDate(runDate: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(runDate);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return new Date(runDate);
+}
+
+function getWeekStart(date: Date) {
+  const result = new Date(date);
+  const day = result.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  result.setDate(result.getDate() + diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
 }
 
 const styles = StyleSheet.create({

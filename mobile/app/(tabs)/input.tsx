@@ -113,23 +113,13 @@ export default function InputScreen() {
     setRunDate(new Date().toISOString().split('T')[0]);
   }, []);
 
-  // ===== OCR 图片导入 =====
   const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('需要相册权限', '请在设置中允许访问相册');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
-
-    setOcrLoading(true);
     try {
-      const ocrResult = await ocrEngine.analyzeImage(result.assets[0].uri);
-      // 预填表单
+      const selectedImageUri = await pickImageForOCR();
+      if (!selectedImageUri) return;
+
+      setOcrLoading(true);
+      const ocrResult = await ocrEngine.analyzeImage(selectedImageUri);
       if (ocrResult.distance) setDistance(String(ocrResult.distance));
       if (ocrResult.duration_sec) {
         const h = Math.floor(ocrResult.duration_sec / 3600);
@@ -141,15 +131,17 @@ export default function InputScreen() {
       }
       if (ocrResult.avg_hr) setAvgHr(String(ocrResult.avg_hr));
       if (ocrResult.run_date) setRunDate(ocrResult.run_date);
-      // 切换到手动模式让用户确认
+
       setMode('manual');
+
       if (ocrResult.confidence === 0) {
         Alert.alert('识别失败', ocrResult.raw_text || '请手动输入数据');
       } else {
-        Alert.alert('识别完成', `置信度 ${Math.round(ocrResult.confidence * 100)}%，请确认数据后提交`);
+        Alert.alert('识别完成', `本地识别完成，置信度 ${Math.round(ocrResult.confidence * 100)}%，请确认数据后提交`);
       }
-    } catch (e) {
-      Alert.alert('识别失败', '请手动输入数据');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '请手动输入数据';
+      Alert.alert('识别失败', message);
       setMode('manual');
     } finally {
       setOcrLoading(false);
@@ -349,9 +341,9 @@ export default function InputScreen() {
       });
 
       const recordsAfterSave = await runRecordRepo.fetchAll();
-      const weeklyProgress = calcWeeklyProgress(recordsAfterSave, profile.weekly_km ?? 30);
-      const weeklyImpact = buildWeeklyImpact(weeklyProgress);
-      const momentum = buildTrainingMomentum(saved, weeklyProgress);
+      const weeklyProgress = calcWeeklyProgress(recordsAfterSave, profile.weekly_km ?? 30, runDate);
+      const weeklyImpact = buildWeeklyImpact(weeklyProgress, runDate);
+      const momentum = buildTrainingMomentum(saved, weeklyProgress, runDate);
 
       router.push({
         pathname: '/training-feedback',
@@ -384,8 +376,15 @@ export default function InputScreen() {
           {/* 模式切换 */}
           <View style={styles.modeSwitch}>
             <ModeTab label="🍎 健康数据" active={mode === 'health'} onPress={() => setMode('health')} />
-            <ModeTab label="📷 图片" active={mode === 'ocr'} onPress={() => setMode('ocr')} />
+            <ModeTab label="📷 本地识别" active={mode === 'ocr'} onPress={() => setMode('ocr')} />
             <ModeTab label="✏️ 手动" active={mode === 'manual'} onPress={() => setMode('manual')} />
+          </View>
+
+          <View style={styles.stageOneCard}>
+            <Text style={styles.stageOneTitle}>阶段 1：本地优先测试</Text>
+            <Text style={styles.stageOneText}>
+              当前版本聚焦“健康数据导入 + 本地 OCR + 手动确认 + 每周反馈”这条核心链路，图片仅在本机识别，不上传到服务端。
+            </Text>
           </View>
 
           {/* Apple Health 模式 */}
@@ -415,7 +414,7 @@ export default function InputScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setMode('ocr')}>
-                    <Text style={styles.manualLink}>或使用图片识别 →</Text>
+                    <Text style={styles.manualLink}>或使用本地图片识别 →</Text>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -496,20 +495,19 @@ export default function InputScreen() {
             </View>
           )}
 
-          {/* OCR 模式 */}
           {mode === 'ocr' && (
             <View style={styles.ocrArea}>
               {ocrLoading ? (
                 <View style={styles.ocrLoading}>
                   <ActivityIndicator size="large" color={Colors.primary} />
-                  <Text style={styles.ocrLoadingText}>正在识别截图...</Text>
+                  <Text style={styles.ocrLoadingText}>正在本地识别截图...</Text>
                 </View>
               ) : (
                 <>
                   <TouchableOpacity style={styles.ocrBtn} onPress={handlePickImage} activeOpacity={0.8}>
                     <Text style={styles.ocrBtnIcon}>🖼️</Text>
                     <Text style={styles.ocrBtnTitle}>选择跑步截图</Text>
-                    <Text style={styles.ocrBtnSub}>支持 Keep、Garmin、Apple Watch 等截图</Text>
+                    <Text style={styles.ocrBtnSub}>仅在本机识别，支持 Keep、Garmin、Apple Watch 等常见截图</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setMode('manual')}>
                     <Text style={styles.manualLink}>或手动输入 →</Text>
@@ -618,6 +616,27 @@ export default function InputScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+async function pickImageForOCR() {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('需要相册权限', '请在设置中允许访问相册');
+    return null;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.8,
+    allowsEditing: false,
+    exif: false,
+  });
+
+  if (result.canceled || !result.assets[0]) {
+    return null;
+  }
+
+  return result.assets[0].uri;
 }
 
 // ===== 子组件 =====
@@ -750,6 +769,24 @@ const styles = StyleSheet.create({
   },
   modeTabText: { fontSize: FontSize.body, color: Colors.gray2, fontWeight: FontWeight.medium },
   modeTabTextActive: { color: Colors.black, fontWeight: FontWeight.semibold },
+  stageOneCard: {
+    backgroundColor: Colors.primary + '10',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  stageOneTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primary,
+  },
+  stageOneText: {
+    fontSize: FontSize.caption,
+    color: Colors.gray1,
+    lineHeight: 20,
+  },
   
   // Apple Health 同步
   healthArea: { gap: Spacing.md, paddingVertical: Spacing.md },
@@ -858,8 +895,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   workoutDeleteBtnText: { fontSize: 16, color: Colors.gray2, lineHeight: 20, includeFontPadding: false },
-  
-  // OCR
   ocrArea: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xl },
   ocrBtn: {
     width: '100%',

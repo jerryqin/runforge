@@ -11,8 +11,12 @@ export interface WeeklyProgress {
   completionRate: number;
 }
 
-export function calcWeeklyProgress(records: RunRecord[], weeklyTargetKm: number): WeeklyProgress {
-  const start = getStartOfWeek(new Date());
+export function calcWeeklyProgress(
+  records: RunRecord[],
+  weeklyTargetKm: number,
+  referenceDate: Date | string = new Date()
+): WeeklyProgress {
+  const start = getStartOfWeek(referenceDate);
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
 
@@ -61,39 +65,76 @@ export function buildWeeklyProgressSummary(progress: WeeklyProgress): string {
   return parts.join('，') || '本周训练节奏良好';
 }
 
-export function buildWeeklyImpact(progress: WeeklyProgress): string {
-  return `本周推进：${progress.completedKm.toFixed(1)}/${progress.targetKm} km（${progress.completionRate}%）\n质量课：${progress.qualityDone}/${progress.qualityTarget}｜长距离：${progress.longRunDone ? '已完成' : '未完成'}`;
+export function buildWeeklyImpact(
+  progress: WeeklyProgress,
+  referenceDate: Date | string = new Date()
+): string {
+  const { title } = getWeeklyContext(referenceDate);
+  return `${title}：${progress.completedKm.toFixed(1)}/${progress.targetKm} km（${progress.completionRate}%）\n质量课：${progress.qualityDone}/${progress.qualityTarget}｜长距离：${progress.longRunDone ? '已完成' : '未完成'}`;
 }
 
-export function buildTrainingMomentum(record: RunRecord, progress: WeeklyProgress): string {
+export function buildTrainingMomentum(
+  record: RunRecord,
+  progress: WeeklyProgress,
+  referenceDate: Date | string = new Date()
+): string {
+  const { weekLabel } = getWeeklyContext(referenceDate);
+
   if (progress.completionRate >= 100) {
-    return '这次训练已帮助你完成本周公里目标，后续以维持节奏和恢复为主。';
+    return `这次训练已帮助你完成${weekLabel}公里目标，后续以维持节奏和恢复为主。`;
   }
 
   if (!progress.longRunDone && record.distance >= Math.max(12, progress.targetKm * 0.25)) {
-    return '这次训练已经补上了本周关键长距离。';
+    return `这次训练已经补上了${weekLabel}关键长距离。`;
   }
 
   if (record.intensity >= Intensity.HIGH && progress.qualityDone >= progress.qualityTarget) {
-    return '这次训练已经满足本周质量课目标。';
+    return `这次训练已经满足${weekLabel}质量课目标。`;
   }
 
   if (record.intensity >= Intensity.HIGH) {
-    return '这次训练正在推进本周质量课目标。';
+    return `这次训练正在推进${weekLabel}质量课目标。`;
   }
 
   if (progress.remainingKm > 0) {
-    return `这次训练后，你距离本周公里目标还差 ${progress.remainingKm.toFixed(1)} km。`;
+    return `这次训练后，你距离${weekLabel}公里目标还差 ${progress.remainingKm.toFixed(1)} km。`;
   }
 
-  return '这次训练帮助你继续维持本周训练节奏。';
+  return `这次训练帮助你继续维持${weekLabel}训练节奏。`;
 }
 
-function getStartOfWeek(date: Date): Date {
-  const result = new Date(date);
+export function getWeeklyContext(referenceDate: Date | string = new Date()) {
+  const refStart = getStartOfWeek(referenceDate);
+  const currentStart = getStartOfWeek(new Date());
+  const isCurrentWeek = refStart.getTime() === currentStart.getTime();
+
+  return {
+    isCurrentWeek,
+    title: isCurrentWeek ? '本周推进' : '对应周推进',
+    weekLabel: isCurrentWeek ? '本周' : '对应周',
+    feedbackTitle: isCurrentWeek ? '今天这次训练，已经计入你的本周推进' : '这次训练，已经计入对应周推进',
+    feedbackSubtitle: isCurrentWeek ? '这次训练已计入你的本周推进' : '这次训练已计入对应周推进',
+  };
+}
+
+function getStartOfWeek(dateInput: Date | string): Date {
+  const result = parseDateInput(dateInput);
   const day = result.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   result.setDate(result.getDate() + diff);
   result.setHours(0, 0, 0, 0);
   return result;
+}
+
+function parseDateInput(dateInput: Date | string): Date {
+  if (dateInput instanceof Date) {
+    return new Date(dateInput);
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  return new Date(dateInput);
 }

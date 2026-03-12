@@ -153,6 +153,14 @@ export default function ProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.localModeCard}>
+            <Text style={styles.localModeTitle}>阶段 1：本地模式</Text>
+            <Text style={styles.localModeText}>
+              当前版本不提供账号和云同步，训练记录、个人档案、提醒设置都只保存在本机，用于低成本验证核心留存闭环是否成立。
+            </Text>
+            <Text style={styles.localModeMeta}>换手机、删除 App 或重装前，请先导出备份。</Text>
+          </View>
+
           {/* 提示卡片 */}
           <View style={styles.tipCard}>
             <Text style={styles.tipTitle}>为什么需要这些数据？</Text>
@@ -269,7 +277,7 @@ export default function ProfileScreen() {
           <View style={styles.backupSection}>
             <Text style={styles.backupTitle}>💾 数据备份</Text>
             <Text style={styles.backupHint}>
-              删除 App 会清除所有本地数据，请定期备份！
+              当前阶段所有数据仅保存在本机。删除 App、重装或更换手机前，请先导出备份！
             </Text>
             
             <View style={styles.backupBtns}>
@@ -346,6 +354,27 @@ function ProfileField({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
   scroll: { padding: Spacing.md, gap: Spacing.md },
+  localModeCard: {
+    backgroundColor: Colors.black,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  localModeTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.white,
+  },
+  localModeText: {
+    fontSize: FontSize.body,
+    color: Colors.white + 'DD',
+    lineHeight: 22,
+  },
+  localModeMeta: {
+    fontSize: FontSize.caption,
+    color: Colors.white + 'B3',
+    lineHeight: 18,
+  },
   tipCard: {
     backgroundColor: Colors.primary + '15',
     borderRadius: BorderRadius.md,

@@ -107,6 +107,7 @@ export default function HistoryScreen() {
                 <Text style={styles.analyticsTitle}>趋势与配速参考</Text>
                 <VDOTTrendCard
                   currentVDOT={currentVDOT}
+                  onPress={() => router.push(`/vdot-progression?current=${currentVDOT.toFixed(1)}`)}
                   vdotHistory={records
                     .filter(r => r.distance >= 3 && r.duration_sec > 0)
                     .map(r => ({

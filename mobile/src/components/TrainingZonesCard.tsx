@@ -26,8 +26,8 @@ export function TrainingZonesCard({ zones, vdot }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.vdotLabel}>VDOT</Text>
-        <Text style={styles.vdotValue}>{vdot.toFixed(1)}</Text>
+        <Text style={styles.headerTitle}>配速与心率区间</Text>
+        <Text style={styles.headerHint}>基于当前跑力</Text>
       </View>
       {zones.map(zone => {
         const color = ZONE_COLORS[zone.zone] ?? Colors.gray2;
@@ -64,8 +64,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.separator,
   },
-  vdotLabel: { fontSize: FontSize.caption, color: Colors.gray2, fontWeight: FontWeight.semibold },
-  vdotValue: { fontSize: FontSize.h2, fontWeight: FontWeight.bold, color: Colors.primary },
+  headerTitle: { fontSize: FontSize.body, color: Colors.black, fontWeight: FontWeight.semibold },
+  headerHint: { fontSize: FontSize.caption, fontWeight: FontWeight.medium, color: Colors.gray2 },
   zoneRow: {
     flexDirection: 'row',
     alignItems: 'center',

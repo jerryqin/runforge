@@ -1,21 +1,15 @@
-import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Colors } from '../src/constants/theme';
-import { configureReminderChannel } from '../src/services/ReminderService';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+import { configureReminderChannel, setupReminderNotificationHandler } from '../src/services/ReminderService';
 
 export default function RootLayout() {
   useEffect(() => {
+    setupReminderNotificationHandler().catch((error) => {
+      console.warn('[Reminder] failed to set notification handler', error);
+    });
+
     configureReminderChannel().catch((error) => {
       console.warn('[Reminder] failed to configure channel', error);
     });
@@ -52,6 +46,10 @@ export default function RootLayout() {
         <Stack.Screen
           name="reminder-settings"
           options={{ title: '提醒设置', headerBackTitle: '返回' }}
+        />
+        <Stack.Screen
+          name="vdot-progression"
+          options={{ title: '跑力进阶路径', headerBackTitle: '返回' }}
         />
       </Stack>
     </>

@@ -1,15 +1,21 @@
 /**
  * OCRService - 跑步截图识别
- * 接口保持稳定，底层实现可从本地切换到远程
- *
- * 路由说明：
- *   v1.0  POST /api/ocr/image  — multipart/form-data 上传图片（GPT-4o Vision）
- *   v1.0  POST /api/ocr/text   — JSON 上传文本（移动端本地 OCR 后传文本）
+ * 当前阶段默认使用端侧 OCR + 本地规则解析
+ * 保持接口稳定，未来如需回退到远程实现，只改导出实例即可
  */
 
 import { OCRResult } from '../types';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+function getNativeTextRecognitionModule() {
+  try {
+    const { NativeModules } = require('react-native') as {
+      NativeModules?: { TextRecognition?: { recognize: (imagePath: string, options?: { visionIgnoreThreshold?: number }) => Promise<string[]> } };
+    };
+    return NativeModules?.TextRecognition ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // ===== OCR 引擎接口（协议隔离）=====
 export interface IOCREngine {
@@ -17,65 +23,144 @@ export interface IOCREngine {
   analyzeText(rawText: string): Promise<OCRResult>;
 }
 
-// ===== v1.0：调用 FastAPI 后端 =====
-class RemoteOCREngine implements IOCREngine {
+type NativeTextRecognitionModule = {
+  recognize: (
+    imageURL: string,
+    options?: { visionIgnoreThreshold?: number }
+  ) => Promise<string[]>;
+};
+
+function normalizeOCRText(rawText: string): string {
+  return rawText
+    .replace(/[：∶]/g, ':')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/公里/g, ' km ')
+    .replace(/千米/g, ' km ')
+    .replace(/\r/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+function parseOCRText(rawText: string): OCRResult {
+  const text = normalizeOCRText(rawText);
+  const result: OCRResult = {
+    raw_text: text,
+    confidence: 0,
+  };
+  let confidenceScore = 0;
+
+  let match = text.match(/(\d+\.?\d*)\s*(?:km|公里)/i);
+  if (match) {
+    result.distance = parseFloat(match[1]);
+    confidenceScore += 0.25;
+  }
+
+  match = text.match(/(\d+)'(\d{2})"/);
+  if (!match) match = text.match(/(\d+):(\d{2})\s*\/?\s*[kK][mM]/);
+  if (!match) match = text.match(/(\d+)分(\d{2})秒/);
+  if (match) {
+    const paceMin = parseInt(match[1], 10);
+    const paceSec = parseInt(match[2], 10);
+    result.avg_pace = paceMin * 60 + paceSec;
+    result.avg_pace_str = `${paceMin}'${paceSec.toString().padStart(2, '0')}"`;
+    confidenceScore += 0.2;
+  }
+
+  match = text.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+  if (!match) match = text.match(/(\d{1,2})小时(\d{1,2})分(\d{1,2})秒/);
+  if (match) {
+    const h = parseInt(match[1], 10);
+    const mn = parseInt(match[2], 10);
+    const s = parseInt(match[3], 10);
+    result.duration_sec = h * 3600 + mn * 60 + s;
+    result.duration_str = `${h.toString().padStart(2, '0')}:${mn.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    confidenceScore += 0.2;
+  }
+
+  match = text.match(/(?:平均心率|心率)\D{0,5}(\d{2,3})/);
+  if (!match) match = text.match(/(\d{2,3})\s*\n?\s*(?:平均心率|心率)/);
+  if (!match) match = text.match(/(\d{2,3})\s*(?:bpm|BPM)/);
+  if (match) {
+    const hr = parseInt(match[1], 10);
+    if (hr >= 40 && hr <= 220) {
+      result.avg_hr = hr;
+      confidenceScore += 0.2;
+    }
+  }
+
+  match = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (!match) match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const y = parseInt(match[1], 10);
+    const mo = parseInt(match[2], 10);
+    const d = parseInt(match[3], 10);
+    result.run_date = `${y}-${mo.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+    confidenceScore += 0.1;
+  }
+
+  match = text.match(/(\d{2,3})\s*(?:步\/分钟|spm|SPM)/);
+  if (!match) match = text.match(/(\d{2,3})\s*\n?\s*(?:平均步频|步频)/);
+  if (match) {
+    result.cadence = parseInt(match[1], 10);
+  }
+
+  match = text.match(/(\d+\.?\d*)\s*千卡/);
+  if (match) {
+    result.calories = parseFloat(match[1]);
+  }
+
+  result.confidence = Math.round(Math.min(confidenceScore, 1) * 100) / 100;
+  return result;
+}
+
+async function loadTextRecognitionModule(): Promise<NativeTextRecognitionModule> {
+  const nativeModule = getNativeTextRecognitionModule() as NativeTextRecognitionModule | null;
+  if (!nativeModule || typeof nativeModule.recognize !== 'function') {
+    throw new Error('当前设备上的安装包还不包含本地 OCR 原生模块。请重新安装最新 iOS 开发包后再试。');
+  }
+
+  return nativeModule;
+}
+
+async function recognizeRawText(imageUri: string): Promise<string[]> {
+  const module = await loadTextRecognitionModule();
+  const lines = await module.recognize(imageUri);
+  const text = normalizeOCRText(lines.join('\n'));
+
+  if (!text) {
+    throw new Error('本地文字识别失败，请确认截图清晰且包含距离、时长、心率等信息。');
+  }
+
+  return [text];
+}
+
+function pickBestResult(results: OCRResult[]): OCRResult {
+  return [...results].sort((a, b) => {
+    if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+    return (b.raw_text?.length ?? 0) - (a.raw_text?.length ?? 0);
+  })[0];
+}
+
+// ===== v2.0：端侧 OCR + 本地解析 =====
+class LocalOCREngine implements IOCREngine {
 
   /**
-   * 上传图片文件（multipart/form-data）
-   * 后端 POST /api/ocr/image 接收 UploadFile
+   * 在设备端识别图片，再用本地规则抽取结构化字段
    */
   async analyzeImage(imageUri: string): Promise<OCRResult> {
-    // 从 URI 推断 MIME 类型
-    const ext = imageUri.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const mimeMap: Record<string, string> = {
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      heic: 'image/heic',
-      webp: 'image/webp',
-    };
-    const mimeType = mimeMap[ext] ?? 'image/jpeg';
-
-    const formData = new FormData();
-    formData.append('file', {
-      uri: imageUri,
-      name: `run.${ext}`,
-      type: mimeType,
-    } as unknown as Blob);
-
-    const response = await fetch(`${API_BASE}/api/ocr/image`, {
-      method: 'POST',
-      body: formData,
-      // 不设置 Content-Type，让 fetch 自动填写 boundary
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`OCR 识别失败 ${response.status}: ${err}`);
-    }
-
-    return (await response.json()) as OCRResult;
+    const rawTexts = await recognizeRawText(imageUri);
+    const parsedResults = rawTexts.map(parseOCRText);
+    return pickBestResult(parsedResults);
   }
 
   /**
-   * 上传原始 OCR 文本（JSON）
-   * 后端 POST /api/ocr/text 做结构化解析
-   * 适用于移动端已做本地 OCR，只需后端解析的场景
+   * 对端侧 OCR 原始文本做本地结构化解析
    */
   async analyzeText(rawText: string): Promise<OCRResult> {
-    const response = await fetch(`${API_BASE}/api/ocr/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw_text: rawText }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`文本解析失败: ${response.status}`);
-    }
-
-    return (await response.json()) as OCRResult;
+    return parseOCRText(rawText);
   }
 }
 
 // ===== 导出单例，未来切换实现只改这一行 =====
-export const ocrEngine: IOCREngine = new RemoteOCREngine();
+export const ocrEngine: IOCREngine = new LocalOCREngine();

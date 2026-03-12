@@ -79,7 +79,9 @@ export interface FitnessMetrics {
 // ===== OCR 解析结果 =====
 export interface OCRResult {
   distance?: number;
+  duration_str?: string;
   duration_sec?: number;
+  avg_pace_str?: string;
   avg_pace?: number;
   avg_hr?: number;
   run_date?: string;

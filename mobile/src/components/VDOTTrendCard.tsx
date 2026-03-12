@@ -2,17 +2,17 @@
  * VDOTTrendCard - VDOT 跑力趋势 + 赛事成绩预测
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { predictAllRaces, RaceDistanceName } from '../engine/VDOTEngine';
-import { formatDuration } from '../engine/AnalysisEngine';
 
 interface Props {
   currentVDOT: number;
   vdotHistory: { date: string; vdot: number }[];
+  onPress?: () => void;
 }
 
-export function VDOTTrendCard({ currentVDOT, vdotHistory }: Props) {
+export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
   if (currentVDOT <= 0) return null;
 
   const predictions = predictAllRaces(currentVDOT);
@@ -37,9 +37,18 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory }: Props) {
   const maxV = Math.max(...chartData.map(d => d.vdot), currentVDOT + 2);
   const minV = Math.min(...chartData.map(d => d.vdot), currentVDOT - 5);
   const range = maxV - minV || 1;
+  const Wrapper = onPress ? TouchableOpacity : View;
 
   return (
-    <View style={styles.container}>
+    <Wrapper
+      style={styles.container}
+      {...(onPress
+        ? {
+            onPress,
+            activeOpacity: 0.88,
+          }
+        : {})}
+    >
       {/* 当前 VDOT */}
       <View style={styles.header}>
         <View>
@@ -51,6 +60,7 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory }: Props) {
             ) : null}
           </View>
         </View>
+        <Text style={styles.pathHint}>查看进阶路径</Text>
       </View>
 
       {/* 趋势图 */}
@@ -85,13 +95,35 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory }: Props) {
           {(Object.entries(predictions) as [RaceDistanceName, number][]).map(([name, sec]) => (
             <View key={name} style={styles.predItem}>
               <Text style={styles.predName}>{name}</Text>
-              <Text style={styles.predTime}>{formatDuration(sec)}</Text>
+              <Text
+                style={styles.predTime}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {formatRacePrediction(sec)}
+              </Text>
             </View>
           ))}
         </View>
       </View>
-    </View>
+    </Wrapper>
   );
+}
+
+function formatRacePrediction(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+
+  if (h <= 0) {
+    return `${m}m`;
+  }
+
+  if (m <= 0) {
+    return `${h}h`;
+  }
+
+  return `${h}h${m}m`;
 }
 
 const styles = StyleSheet.create({
@@ -101,11 +133,16 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
   vdotLabel: { fontSize: FontSize.caption, color: Colors.gray2, fontWeight: FontWeight.medium },
   vdotRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
   vdotValue: { fontSize: FontSize.h1, fontWeight: FontWeight.bold, color: Colors.primary },
   trendText: { fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  pathHint: {
+    fontSize: FontSize.caption,
+    color: Colors.primary,
+    fontWeight: FontWeight.semibold,
+  },
   chart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -124,10 +161,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.sm,
-    padding: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.sm,
     alignItems: 'center',
     gap: 2,
+    minHeight: 74,
+    justifyContent: 'center',
   },
   predName: { fontSize: FontSize.caption, color: Colors.gray2, fontWeight: FontWeight.medium },
-  predTime: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
+  predTime: { fontSize: FontSize.h2, fontWeight: FontWeight.bold, color: Colors.black, textAlign: 'center', width: '100%' },
 });

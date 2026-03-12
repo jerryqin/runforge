@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 const STORAGE_KEY = '@runforge/daily-training-reminder';
 const ANDROID_CHANNEL_ID = 'daily-training-reminders';
+const NOTIFICATIONS_UNAVAILABLE_MESSAGE = '当前安装包不包含通知原生模块，请重新安装最新开发包后再使用提醒功能。';
 
 export type ReminderPermissionStatus = 'undetermined' | 'denied' | 'granted';
 
@@ -23,7 +23,46 @@ const DEFAULT_SETTINGS: DailyTrainingReminderSettings = {
   permissionStatus: 'undetermined',
 };
 
+function getNotificationsModule() {
+  try {
+    return require('expo-notifications');
+  } catch (error) {
+    console.warn('[Reminder] expo-notifications unavailable', error);
+    return null;
+  }
+}
+
+function requireNotificationsModule() {
+  const notifications = getNotificationsModule();
+  if (!notifications) {
+    throw new Error(NOTIFICATIONS_UNAVAILABLE_MESSAGE);
+  }
+  return notifications;
+}
+
+export function isReminderSupported() {
+  return getNotificationsModule() != null;
+}
+
+export async function setupReminderNotificationHandler() {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return false;
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+
+  return true;
+}
+
 export async function configureReminderChannel() {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return;
   if (Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
@@ -64,11 +103,14 @@ export async function saveDailyTrainingReminderSettings(settings: DailyTrainingR
 }
 
 export async function getReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return 'undetermined';
   const permission = await Notifications.getPermissionsAsync();
   return permission.status as ReminderPermissionStatus;
 }
 
 export async function requestReminderPermissions(): Promise<ReminderPermissionStatus> {
+  const Notifications = requireNotificationsModule();
   const existingStatus = await getReminderPermissionStatus();
   if (existingStatus === 'granted') return existingStatus;
 
@@ -84,6 +126,7 @@ export async function requestReminderPermissions(): Promise<ReminderPermissionSt
 }
 
 export async function enableDailyTrainingReminder(hour: number, minute: number) {
+  const Notifications = requireNotificationsModule();
   await configureReminderChannel();
 
   const permissionStatus = await requestReminderPermissions();
@@ -131,9 +174,10 @@ export async function enableDailyTrainingReminder(hour: number, minute: number) 
 }
 
 export async function disableDailyTrainingReminder() {
+  const Notifications = getNotificationsModule();
   const currentSettings = await loadDailyTrainingReminderSettings();
 
-  if (currentSettings.notificationId) {
+  if (Notifications && currentSettings.notificationId) {
     await Notifications.cancelScheduledNotificationAsync(currentSettings.notificationId);
   }
 
@@ -149,6 +193,7 @@ export async function disableDailyTrainingReminder() {
 }
 
 export async function scheduleReminderTestNotification() {
+  const Notifications = requireNotificationsModule();
   await configureReminderChannel();
 
   const permissionStatus = await requestReminderPermissions();
