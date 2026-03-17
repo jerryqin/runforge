@@ -9,7 +9,7 @@ import { OCRResult } from '../types';
 function getNativeTextRecognitionModule() {
   try {
     const { NativeModules, Platform } = require('react-native') as {
-      NativeModules?: { TextRecognition?: { recognize: (imagePath: string) => Promise<string[]> } };
+      NativeModules?: { TextRecognition?: { recognize: (imagePath: string) => Promise<NativeOCRObservation[]> } };
       Platform?: { OS?: string };
     };
 
@@ -30,7 +30,20 @@ export interface IOCREngine {
 }
 
 type NativeTextRecognitionModule = {
-  recognize: (imageURL: string) => Promise<string[]>;
+  recognize: (imageURL: string) => Promise<NativeOCRObservation[]>;
+};
+
+type NativeOCRObservation = {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type OCRPayload = {
+  text: string;
+  observations: NativeOCRObservation[];
 };
 
 function normalizeOCRText(rawText: string): string {
@@ -94,7 +107,87 @@ function findMetricNearKeywords(
   return null;
 }
 
-function parseOCRText(rawText: string): OCRResult {
+function getObservationCenterX(observation: NativeOCRObservation): number {
+  return observation.x + observation.width / 2;
+}
+
+function getObservationCenterY(observation: NativeOCRObservation): number {
+  return observation.y + observation.height / 2;
+}
+
+function extractNumericObservationCandidates(
+  observations: NativeOCRObservation[],
+  min: number,
+  max: number
+): Array<NativeOCRObservation & { value: number }> {
+  return observations
+    .map(observation => {
+      const value = parsePlausibleInteger(observation.text, min, max);
+      return value === null ? null : { ...observation, value };
+    })
+    .filter((item): item is NativeOCRObservation & { value: number } => item !== null);
+}
+
+function findMetricFromLayout(
+  observations: NativeOCRObservation[],
+  keywords: string[],
+  min: number,
+  max: number
+): number | null {
+  const labelObservations = observations.filter(observation => keywords.some(keyword => observation.text.includes(keyword)));
+  if (labelObservations.length === 0) {
+    return null;
+  }
+
+  const valueObservations = extractNumericObservationCandidates(observations, min, max);
+  if (valueObservations.length === 0) {
+    return null;
+  }
+
+  let bestCandidate: { score: number; value: number } | null = null;
+
+  for (const label of labelObservations) {
+    const labelCenterX = getObservationCenterX(label);
+    const labelTop = label.y;
+
+    for (const candidate of valueObservations) {
+      if (candidate.text.includes('年') || candidate.text.includes(':')) {
+        continue;
+      }
+
+      const candidateBottom = candidate.y + candidate.height;
+      const isAboveLabel = candidateBottom <= labelTop + 0.02;
+      if (!isAboveLabel) {
+        continue;
+      }
+
+      const horizontalDistance = Math.abs(getObservationCenterX(candidate) - labelCenterX);
+      const verticalDistance = Math.max(0, labelTop - candidateBottom);
+      const horizontalOverlap = Math.max(
+        0,
+        Math.min(candidate.x + candidate.width, label.x + label.width) - Math.max(candidate.x, label.x)
+      );
+      const overlapRatio = horizontalOverlap / Math.max(Math.min(candidate.width, label.width), 0.0001);
+
+      if (horizontalDistance > 0.18 && overlapRatio < 0.2) {
+        continue;
+      }
+
+      if (verticalDistance > 0.22) {
+        continue;
+      }
+
+      const score = overlapRatio * 4 - horizontalDistance * 3 - verticalDistance * 6;
+      if (bestCandidate === null || score > bestCandidate.score) {
+        bestCandidate = { score, value: candidate.value };
+      }
+    }
+  }
+
+  return bestCandidate?.value ?? null;
+}
+
+function parseOCRText(rawText: string, observations: NativeOCRObservation[] = []): OCRResult {
   const text = normalizeOCRText(rawText);
   const result: OCRResult = {
     raw_text: text,
@@ -135,6 +228,9 @@ function parseOCRText(rawText: string): OCRResult {
   if (!match) match = text.match(/([0-9OoIl|SsBb]{2,3})\s*(?:bpm|BPM)/);
 
   let avgHr = match ? parsePlausibleInteger(match[1], 40, 220) : null;
+  if (avgHr === null && observations.length > 0) {
+    avgHr = findMetricFromLayout(observations, ['平均心率', '心率', 'bpm', 'BPM'], 40, 220);
+  }
   if (avgHr === null) {
     avgHr = findMetricNearKeywords(text, ['平均心率', '心率', 'bpm', 'BPM'], 40, 220);
   }
@@ -178,16 +274,17 @@ async function loadTextRecognitionModule(): Promise<NativeTextRecognitionModule>
   return nativeModule;
 }
 
-async function recognizeRawText(imageUri: string): Promise<string[]> {
+async function recognizeRawText(imageUri: string): Promise<OCRPayload> {
   const module = await loadTextRecognitionModule();
-  const lines = await module.recognize(imageUri);
+  const observations = await module.recognize(imageUri);
+  const lines = observations.map(item => item.text);
   const text = normalizeOCRText(lines.join('\n'));
 
   if (!text) {
     throw new Error('本地文字识别失败，请确认截图清晰且包含距离、时长、心率等信息。');
   }
 
-  return [text];
+  return { text, observations };
 }
 
 function pickBestResult(results: OCRResult[]): OCRResult {
@@ -204,8 +301,8 @@ class LocalOCREngine implements IOCREngine {
    * 在设备端识别图片，再用本地规则抽取结构化字段
    */
   async analyzeImage(imageUri: string): Promise<OCRResult> {
-    const rawTexts = await recognizeRawText(imageUri);
-    const parsedResults = rawTexts.map(parseOCRText);
+    const payload = await recognizeRawText(imageUri);
+    const parsedResults = [parseOCRText(payload.text, payload.observations)];
     return pickBestResult(parsedResults);
   }
 
