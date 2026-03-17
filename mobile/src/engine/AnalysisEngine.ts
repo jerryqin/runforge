@@ -12,6 +12,58 @@ const LONG_DISTANCE_KM = 25;
 const ATL_DAYS = 7;    // 急性训练负荷窗口
 const CTL_DAYS = 42;   // 慢性训练负荷窗口
 
+export const BODY_STATUS_THRESHOLDS = {
+  longDistanceKm: LONG_DISTANCE_KM,
+  restConsecutiveHighDays: 2,
+} as const;
+
+export const RECOVERY_LOAD_THRESHOLDS = {
+  peakReadyTsb: 15,
+  readyTsb: 0,
+  tiredTsb: -10,
+  restTsb: -30,
+  recoveryRunTsb: -15,
+} as const;
+
+const BODY_STATUS_COPY: Record<BodyStatus, { subtitle: string; todayReason: string }> = {
+  [BodyStatus.READY]: {
+    subtitle: '恢复状态不错，可以按计划推进今天的训练。',
+    todayReason: '你的本周推进在正常范围内，今天按建议训练即可继续维持节奏。',
+  },
+  [BodyStatus.NORMAL]: {
+    subtitle: '身体状态稳定，按今日行动推进即可。',
+    todayReason: '你的本周推进在正常范围内，今天按建议训练即可继续维持节奏。',
+  },
+  [BodyStatus.TIRED]: {
+    subtitle: '近期有疲劳累积，今天以控制强度、稳住节奏为主。',
+    todayReason: '你本周已有训练积累，今天以恢复和稳住节奏为主。',
+  },
+  [BodyStatus.REST]: {
+    subtitle: '当前恢复压力偏高，今天优先休息或只做非常轻松的恢复活动。',
+    todayReason: '当前疲劳偏高，今天先恢复，比继续堆跑量更重要。',
+  },
+};
+
+const RECOVERY_LOAD_DETAIL_COPY = {
+  peak: {
+    detail: '巅峰窗口',
+    tip: '恢复非常充分，适合比赛或一次高质量训练。',
+  },
+  ready: {
+    detail: '恢复良好',
+  },
+  normal: {
+    detail: '负荷可控',
+    tip: '负荷仍在可控区间，适合保持训练节奏。',
+  },
+  tired: {
+    detail: '疲劳积累',
+  },
+  rest: {
+    detail: '恢复不足',
+  },
+} as const;
+
 // ===== 强度判断 =====
 // 基于 %HRmax，比固定绝对值更准确
 export function calcIntensity(avgHr: number, profile: UserProfile): Intensity {
@@ -80,7 +132,7 @@ export function buildSuggest(
   recentRecords: RunRecord[]
 ): string {
   // 强制规则：长距离后优先恢复
-  if (distance >= LONG_DISTANCE_KM) {
+  if (distance >= BODY_STATUS_THRESHOLDS.longDistanceKm) {
     return '长距离后优先恢复，建议休息或慢跑。';
   }
 
@@ -121,18 +173,122 @@ export function calcBodyStatus(recentRecords: RunRecord[]): BodyStatus {
   const last3 = recentRecords.slice(0, 3);
   const last2 = recentRecords.slice(0, 2);
 
-  // 近3天内有长距离
-  const hasLongRun = last3.some(r => r.distance >= LONG_DISTANCE_KM);
-  if (hasLongRun) return BodyStatus.TIRED;
-
-  // 近2天连续高强度
-  const consecutiveHigh = last2.length >= 2 && last2.every(r => r.intensity >= Intensity.HIGH);
+  // 先处理最强风险信号：连续高强度应该高于单次长距离
+  const consecutiveHigh =
+    last2.length >= BODY_STATUS_THRESHOLDS.restConsecutiveHighDays &&
+    last2.every(r => r.intensity >= Intensity.HIGH);
   if (consecutiveHigh) return BodyStatus.REST;
+
+  // 近3天内有长距离
+  const hasLongRun = last3.some(r => r.distance >= BODY_STATUS_THRESHOLDS.longDistanceKm);
+  if (hasLongRun) return BodyStatus.TIRED;
 
   // 最近一次高强度
   if (last2[0]?.intensity >= Intensity.HIGH) return BodyStatus.NORMAL;
 
   return BodyStatus.READY;
+}
+
+// ===== 将 TSB 恢复负荷映射为身体状态 =====
+export function mapFitnessMetricsToBodyStatus(metrics: FitnessMetrics): BodyStatus {
+  if (metrics.tsb <= RECOVERY_LOAD_THRESHOLDS.restTsb) return BodyStatus.REST;
+  if (metrics.tsb <= RECOVERY_LOAD_THRESHOLDS.tiredTsb) return BodyStatus.TIRED;
+  if (metrics.tsb > RECOVERY_LOAD_THRESHOLDS.readyTsb) return BodyStatus.READY;
+  return BodyStatus.NORMAL;
+}
+
+// ===== 综合身体状态 =====
+export function calcCompositeBodyStatus(
+  recentRecords: RunRecord[],
+  metrics?: FitnessMetrics | null
+): BodyStatus {
+  const recentStatus = calcBodyStatus(recentRecords);
+  if (!metrics) return recentStatus;
+
+  const loadStatus = mapFitnessMetricsToBodyStatus(metrics);
+  return Math.max(recentStatus, loadStatus) as BodyStatus;
+}
+
+// ===== 身体状态统一文案 =====
+export function getBodyStatusSubtitle(status: BodyStatus): string {
+  return BODY_STATUS_COPY[status].subtitle;
+}
+
+export interface TodayReasonOptions {
+  hasWeeklyProgress: boolean;
+  completionRate?: number;
+  longRunDone?: boolean;
+}
+
+export function getTodayActionReason(
+  status: BodyStatus,
+  options: TodayReasonOptions
+): string {
+  if (!options.hasWeeklyProgress) {
+    return '系统会结合你的训练记录与周目标，动态生成今天最合适的训练动作。';
+  }
+
+  if (status === BodyStatus.REST || status === BodyStatus.TIRED) {
+    return BODY_STATUS_COPY[status].todayReason;
+  }
+
+  if ((options.completionRate ?? 0) < 40) {
+    return '本周推进偏慢，今天这堂课会帮助你稳步追上周目标。';
+  }
+
+  if (options.longRunDone === false) {
+    return '本周长距离还未完成，建议优先完成这类关键训练。';
+  }
+
+  return BODY_STATUS_COPY[status].todayReason;
+}
+
+export interface RecoveryLoadStatusInfo {
+  bodyStatus: BodyStatus;
+  detail: string;
+  tip: string;
+}
+
+export function getRecoveryLoadStatusInfo(tsb: number): RecoveryLoadStatusInfo {
+  const bodyStatus = mapFitnessMetricsToBodyStatus({ atl: 0, ctl: 0, tsb });
+
+  if (tsb > RECOVERY_LOAD_THRESHOLDS.peakReadyTsb) {
+    return {
+      bodyStatus,
+      detail: RECOVERY_LOAD_DETAIL_COPY.peak.detail,
+      tip: RECOVERY_LOAD_DETAIL_COPY.peak.tip,
+    };
+  }
+
+  if (tsb > RECOVERY_LOAD_THRESHOLDS.readyTsb) {
+    return {
+      bodyStatus,
+      detail: RECOVERY_LOAD_DETAIL_COPY.ready.detail,
+      tip: getBodyStatusSubtitle(bodyStatus),
+    };
+  }
+
+  if (tsb > RECOVERY_LOAD_THRESHOLDS.tiredTsb) {
+    return {
+      bodyStatus,
+      detail: RECOVERY_LOAD_DETAIL_COPY.normal.detail,
+      tip: RECOVERY_LOAD_DETAIL_COPY.normal.tip,
+    };
+  }
+
+  if (tsb > RECOVERY_LOAD_THRESHOLDS.restTsb) {
+    return {
+      bodyStatus,
+      detail: RECOVERY_LOAD_DETAIL_COPY.tired.detail,
+      tip: getBodyStatusSubtitle(bodyStatus),
+    };
+  }
+
+  return {
+    bodyStatus,
+    detail: RECOVERY_LOAD_DETAIL_COPY.rest.detail,
+    tip: getBodyStatusSubtitle(bodyStatus),
+  };
 }
 
 // ===== 配速格式化 =====

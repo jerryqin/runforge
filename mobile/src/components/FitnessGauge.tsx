@@ -3,19 +3,22 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
-import { FitnessMetrics } from '../types';
+import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
+import { getRecoveryLoadStatusInfo } from '../engine/AnalysisEngine';
+import { BodyStatusLabel, FitnessMetrics } from '../types';
 
 interface Props {
   metrics: FitnessMetrics;
 }
 
-function getStatusInfo(tsb: number): { label: string; color: string; tip: string } {
-  if (tsb > 15) return { label: '巅峰状态', color: Colors.statusGreen, tip: '状态极佳，适合比赛或高强度训练' };
-  if (tsb > 0) return { label: '状态良好', color: Colors.statusGreen, tip: '可以正常训练，偶尔加量' };
-  if (tsb > -10) return { label: '适度疲劳', color: Colors.intensityNormal, tip: '最佳训练区间，保持节奏' };
-  if (tsb > -30) return { label: '积累疲劳', color: Colors.intensityHigh, tip: '注意恢复，不宜连续高强度' };
-  return { label: '过度疲劳', color: Colors.statusRed, tip: '必须休息！受伤风险高' };
+function getStatusInfo(tsb: number): { label: string; color: string; tip: string; detail: string } {
+  const status = getRecoveryLoadStatusInfo(tsb);
+  return {
+    label: BodyStatusLabel[status.bodyStatus],
+    color: BodyStatusColors[status.bodyStatus],
+    detail: status.detail,
+    tip: status.tip,
+  };
 }
 
 export function FitnessGauge({ metrics }: Props) {
@@ -30,6 +33,7 @@ export function FitnessGauge({ metrics }: Props) {
             {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
           </Text>
           <Text style={[styles.tsbLabel, { color: status.color }]}>{status.label}</Text>
+          <Text style={[styles.tsbDetail, { color: status.color }]}>{status.detail}</Text>
         </View>
         <Text style={styles.tsbTip}>{status.tip}</Text>
       </View>
@@ -118,6 +122,7 @@ const styles = StyleSheet.create({
   },
   tsbValue: { fontSize: FontSize.h1, fontWeight: FontWeight.bold },
   tsbLabel: { fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  tsbDetail: { fontSize: FontSize.caption, fontWeight: FontWeight.medium },
   tsbTip: { fontSize: FontSize.caption, color: Colors.gray2, textAlign: 'center' },
   metricsRow: { flexDirection: 'row', gap: Spacing.md },
   gaugeItem: { flex: 1, gap: Spacing.xs },

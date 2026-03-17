@@ -23,7 +23,7 @@ import {
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics } from '../../src/engine/AnalysisEngine';
+import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, getBodyStatusSubtitle, getTodayActionReason } from '../../src/engine/AnalysisEngine';
 import { buildTrainingMomentum, buildWeeklyImpact, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
@@ -73,8 +73,10 @@ export default function HomeScreen() {
       };
     });
     
+    const fitnessMetrics = prof && records.length > 0 ? calcFitnessMetrics(records, prof) : null;
+
     setRecentRecords(updated.slice(0, 7));
-    setBodyStatus(calcBodyStatus(updated));
+    setBodyStatus(calcCompositeBodyStatus(updated, fitnessMetrics));
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -225,15 +227,7 @@ export default function HomeScreen() {
         <Section title="身体状态">
           <StatusCard
             status={bodyStatus}
-            subtitle={
-              bodyStatus === BodyStatus.REST
-                ? '近期高强度训练较多，今天优先休息。'
-                : bodyStatus === BodyStatus.TIRED
-                ? '近期有疲劳累积，建议控制训练强度。'
-                : bodyStatus === BodyStatus.READY
-                ? '恢复状态不错，可以按计划推进训练。'
-                : '身体状态稳定，按今日行动推进即可。'
-            }
+            subtitle={getBodyStatusSubtitle(bodyStatus)}
           />
         </Section>
 
@@ -439,22 +433,11 @@ function ActionButton({
 }
 
 function buildTodayReason(status: BodyStatus, progress: WeeklyProgress | null): string {
-  if (!progress) {
-    return '系统会结合你的训练记录与周目标，动态生成今天最合适的训练动作。';
-  }
-  if (status === BodyStatus.REST) {
-    return '当前疲劳偏高，今天先恢复，比继续堆跑量更重要。';
-  }
-  if (status === BodyStatus.TIRED) {
-    return '你本周已有训练积累，今天以恢复和稳住节奏为主。';
-  }
-  if (progress.completionRate < 40) {
-    return '本周推进偏慢，今天这堂课会帮助你稳步追上周目标。';
-  }
-  if (!progress.longRunDone) {
-    return '本周长距离还未完成，建议优先完成这类关键训练。';
-  }
-  return '你的本周推进在正常范围内，今天按建议训练即可继续维持节奏。';
+  return getTodayActionReason(status, {
+    hasWeeklyProgress: Boolean(progress),
+    completionRate: progress?.completionRate,
+    longRunDone: progress?.longRunDone,
+  });
 }
 
 function buildActionCTA(

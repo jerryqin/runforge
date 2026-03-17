@@ -5,6 +5,8 @@
  * 纯函数实现，无副作用
  */
 
+import { RECOVERY_LOAD_THRESHOLDS } from './AnalysisEngine';
+
 // ===== 基础公式 =====
 
 /** 跑步速度对应的摄氧量 (ml/kg/min)，v 单位: m/min */
@@ -244,17 +246,17 @@ export function generatePrescription(params: {
     };
   }
 
-  if (tsb < -30) {
+  if (tsb < RECOVERY_LOAD_THRESHOLDS.restTsb) {
     return {
       type: TrainingType.REST,
       label: '休息日',
       zone: '-',
-      description: '身体疲劳指数较高(TSB < -30)，建议完全休息或极轻松散步。',
+      description: `身体疲劳指数较高(TSB < ${RECOVERY_LOAD_THRESHOLDS.restTsb})，建议完全休息或极轻松散步。`,
     };
   }
 
   // ===== 恢复日 =====
-  if (tsb < -15) {
+  if (tsb < RECOVERY_LOAD_THRESHOLDS.recoveryRunTsb) {
     return {
       type: TrainingType.RECOVERY,
       label: '恢复跑',
@@ -285,7 +287,7 @@ export function generatePrescription(params: {
 
   // 周二: 节奏跑 / 间歇跑（交替）
   if (weekday === 2) {
-    if (tsb > 0) {
+    if (tsb > RECOVERY_LOAD_THRESHOLDS.readyTsb) {
       // 状态好 → 间歇
       return {
         type: TrainingType.INTERVAL,
