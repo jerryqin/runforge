@@ -29,7 +29,7 @@ import { ocrEngine } from '../../src/services/OCRService';
 import { useHealthData } from '../../src/services/useHealthData';
 import { HealthStatus, HealthWorkout } from '../../src/services/HealthService';
 
-const LOCAL_OCR_ENABLED = false;
+const LOCAL_OCR_ENABLED = Platform.OS === 'ios';
 
 type InputMode = 'health' | 'ocr' | 'manual';
 
@@ -393,7 +393,7 @@ export default function InputScreen() {
           <View style={styles.stageOneCard}>
             <Text style={styles.stageOneTitle}>阶段 1：本地优先测试</Text>
             <Text style={styles.stageOneText}>
-              当前 TestFlight 版本聚焦“健康数据导入 + 手动录入 + 每周反馈”这条核心链路。本地识别能力暂时隐藏，待稳定后再恢复开放。
+              当前 TestFlight 版本聚焦“健康数据导入 + 截图识别 + 手动录入 + 每周反馈”这条核心链路。截图识别仅在 iPhone 端本机完成，不依赖云端。
             </Text>
           </View>
 

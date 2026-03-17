@@ -1,6 +1,6 @@
 /**
  * OCRService - 跑步截图识别
- * 当前阶段默认使用端侧 OCR + 本地规则解析
+ * 当前阶段默认使用 Apple Vision 端侧 OCR + 本地规则解析
  * 保持接口稳定，未来如需回退到远程实现，只改导出实例即可
  */
 
@@ -8,9 +8,15 @@ import { OCRResult } from '../types';
 
 function getNativeTextRecognitionModule() {
   try {
-    const { NativeModules } = require('react-native') as {
-      NativeModules?: { TextRecognition?: { recognize: (imagePath: string, options?: { visionIgnoreThreshold?: number }) => Promise<string[]> } };
+    const { NativeModules, Platform } = require('react-native') as {
+      NativeModules?: { TextRecognition?: { recognize: (imagePath: string) => Promise<string[]> } };
+      Platform?: { OS?: string };
     };
+
+    if (Platform?.OS !== 'ios') {
+      return null;
+    }
+
     return NativeModules?.TextRecognition ?? null;
   } catch {
     return null;
@@ -24,10 +30,7 @@ export interface IOCREngine {
 }
 
 type NativeTextRecognitionModule = {
-  recognize: (
-    imageURL: string,
-    options?: { visionIgnoreThreshold?: number }
-  ) => Promise<string[]>;
+  recognize: (imageURL: string) => Promise<string[]>;
 };
 
 function normalizeOCRText(rawText: string): string {
@@ -40,6 +43,55 @@ function normalizeOCRText(rawText: string): string {
     .replace(/\r/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim();
+}
+
+function sanitizeOCRDigits(value: string): string {
+  return value
+    .replace(/[Oo○◦]/g, '0')
+    .replace(/[Il|]/g, '1')
+    .replace(/[Ss]/g, '5')
+    .replace(/[Bb]/g, '8');
+}
+
+function parsePlausibleInteger(value: string, min: number, max: number): number | null {
+  const normalized = sanitizeOCRDigits(value);
+  const match = normalized.match(/\d{2,3}/);
+  if (!match) return null;
+
+  const parsed = parseInt(match[0], 10);
+  if (parsed < min || parsed > max) return null;
+  return parsed;
+}
+
+function findMetricNearKeywords(
+  text: string,
+  keywords: string[],
+  min: number,
+  max: number
+): number | null {
+  const lines = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const hasKeyword = keywords.some(keyword => line.includes(keyword));
+    if (!hasKeyword) continue;
+
+    const candidates = [line, lines[index - 1], lines[index + 1], lines[index - 2], lines[index + 2]].filter(
+      (item): item is string => Boolean(item)
+    );
+
+    for (const candidate of candidates) {
+      const parsed = parsePlausibleInteger(candidate, min, max);
+      if (parsed !== null) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
 }
 
 function parseOCRText(rawText: string): OCRResult {
@@ -78,15 +130,18 @@ function parseOCRText(rawText: string): OCRResult {
     confidenceScore += 0.2;
   }
 
-  match = text.match(/(?:平均心率|心率)\D{0,5}(\d{2,3})/);
-  if (!match) match = text.match(/(\d{2,3})\s*\n?\s*(?:平均心率|心率)/);
-  if (!match) match = text.match(/(\d{2,3})\s*(?:bpm|BPM)/);
-  if (match) {
-    const hr = parseInt(match[1], 10);
-    if (hr >= 40 && hr <= 220) {
-      result.avg_hr = hr;
-      confidenceScore += 0.2;
-    }
+  match = text.match(/(?:平均心率|心率)\D{0,8}([0-9OoIl|SsBb]{2,3})/);
+  if (!match) match = text.match(/([0-9OoIl|SsBb]{2,3})\s*\n?\s*(?:平均心率|心率)/);
+  if (!match) match = text.match(/([0-9OoIl|SsBb]{2,3})\s*(?:bpm|BPM)/);
+
+  let avgHr = match ? parsePlausibleInteger(match[1], 40, 220) : null;
+  if (avgHr === null) {
+    avgHr = findMetricNearKeywords(text, ['平均心率', '心率', 'bpm', 'BPM'], 40, 220);
+  }
+
+  if (avgHr !== null) {
+    result.avg_hr = avgHr;
+    confidenceScore += 0.2;
   }
 
   match = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
@@ -117,7 +172,7 @@ function parseOCRText(rawText: string): OCRResult {
 async function loadTextRecognitionModule(): Promise<NativeTextRecognitionModule> {
   const nativeModule = getNativeTextRecognitionModule() as NativeTextRecognitionModule | null;
   if (!nativeModule || typeof nativeModule.recognize !== 'function') {
-    throw new Error('当前设备上的安装包还不包含本地 OCR 原生模块。请重新安装最新 iOS 开发包后再试。');
+    throw new Error('当前版本仅支持 iPhone 端侧 OCR。请重新安装包含 Apple Vision OCR 的最新 iOS 开发包后再试。');
   }
 
   return nativeModule;
@@ -142,7 +197,7 @@ function pickBestResult(results: OCRResult[]): OCRResult {
   })[0];
 }
 
-// ===== v2.0：端侧 OCR + 本地解析 =====
+// ===== v2.0：Apple Vision 端侧 OCR + 本地解析 =====
 class LocalOCREngine implements IOCREngine {
 
   /**
