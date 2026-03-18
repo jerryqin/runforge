@@ -12,10 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "runtimeVersion": "1.0.0-native-ocr-v1",
+    "updates": {
+      "enabled": true,
+      "url": "https://u.expo.dev/4c2b6c83-7790-40ad-b18f-1995248ad0f2",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jerryqin.runforge",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "允许 RunForge 访问你的照片，用于选择跑步截图或导入训练相关文件。",
@@ -49,6 +59,13 @@
         }
       ],
       "./plugins/withHealthKit"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4c2b6c83-7790-40ad-b18f-1995248ad0f2"
+      }
+    },
+    "owner": "jerryqin"
   }
 }

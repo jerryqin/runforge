@@ -13,7 +13,10 @@
     "web": "expo start --web",
     "prebuild": "expo prebuild",
     "prebuild:clean": "expo prebuild --clean",
-    "pod-install": "cd ios && pod install && cd .."
+    "pod-install": "cd ios && pod install && cd ..",
+    "update:preview": "node ./scripts/eas-update.js preview preview",
+    "update:prod": "node ./scripts/eas-update.js production production",
+    "update:production": "node ./scripts/eas-update.js production production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
