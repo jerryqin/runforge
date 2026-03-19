@@ -2,7 +2,7 @@
 mobile/node_modules/
 mobile/.expo/
 mobile/dist/
-mobile/build/
+mobile/builds/
 mobile/*.jks
 mobile/*.p8
 mobile/*.p12
@@ -41,3 +41,4 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+mobile/builds/runforge.ipa
