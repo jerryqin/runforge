@@ -19,7 +19,7 @@
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
       "requestHeaders": {
-        "expo-channel-name": "preview"
+        "expo-channel-name": "production"
       }
     },
     "ios": {

@@ -8,7 +8,9 @@
       "channel": "preview"
     },
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "distribution": "store"
+      // "autoSubmit": true
     }
   }
 }
