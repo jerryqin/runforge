@@ -10,7 +10,13 @@
     "production": {
       "channel": "production",
       "distribution": "store"
-      // "autoSubmit": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6760471064"
+      }
     }
   }
 }
