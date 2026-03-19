@@ -52,6 +52,7 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       resting_hr      INTEGER NOT NULL DEFAULT 55,
       hr_threshold    INTEGER NOT NULL DEFAULT 165,
       birth_year      INTEGER,
+      running_start_year INTEGER,
       weekly_km       REAL NOT NULL DEFAULT 30
     );
 
@@ -77,6 +78,8 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
 
   // 增量迁移：v2 新增列
   await migrateV2(db);
+  // 增量迁移：v3 新增 running_start_year
+  await migrateV3(db);
 }
 
 async function migrateV2(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -113,6 +116,27 @@ async function migrateV2(db: SQLite.SQLiteDatabase): Promise<void> {
 
   await db.execAsync(
     `INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (2, datetime('now'))`
+  );
+}
+
+async function migrateV3(db: SQLite.SQLiteDatabase): Promise<void> {
+  const v3 = await db.getFirstAsync<{ version: number }>(
+    `SELECT version FROM schema_version WHERE version = 3`
+  );
+  if (v3) return;
+
+  const addColumnSafe = async (table: string, col: string, type: string) => {
+    try {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+    } catch {
+      // 列已存在，忽略
+    }
+  };
+
+  await addColumnSafe('user_profile', 'running_start_year', 'INTEGER');
+
+  await db.execAsync(
+    `INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (3, datetime('now'))`
   );
 }
 

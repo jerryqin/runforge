@@ -32,6 +32,7 @@ export default function ProfileScreen() {
   const [restingHr, setRestingHr] = useState('');
   const [hrThreshold, setHrThreshold] = useState('');
   const [birthYear, setBirthYear] = useState('');
+  const [runningStartYear, setRunningStartYear] = useState('');
   const [weeklyKm, setWeeklyKm] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
       setRestingHr(String(p.resting_hr));
       setHrThreshold(String(p.hr_threshold));
       setBirthYear(p.birth_year ? String(p.birth_year) : '');
+      setRunningStartYear(p.running_start_year ? String(p.running_start_year) : '');
       setWeeklyKm(p.weekly_km ? String(p.weekly_km) : '30');
     });
   }, []);
@@ -64,6 +66,7 @@ export default function ProfileScreen() {
     const rhr = parseInt(restingHr, 10);
     const lthr = parseInt(hrThreshold, 10);
     const by = birthYear ? parseInt(birthYear, 10) : undefined;
+    const rsy = runningStartYear ? parseInt(runningStartYear, 10) : undefined;
 
     const wk = weeklyKm ? parseInt(weeklyKm, 10) : 30;
 
@@ -74,7 +77,7 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
-      await userProfileRepo.save({ max_hr: mhr, resting_hr: rhr, hr_threshold: lthr, birth_year: by, weekly_km: wk });
+      await userProfileRepo.save({ max_hr: mhr, resting_hr: rhr, hr_threshold: lthr, birth_year: by, running_start_year: rsy, weekly_km: wk });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -138,6 +141,7 @@ export default function ProfileScreen() {
       setRestingHr(String(p.resting_hr));
       setHrThreshold(String(p.hr_threshold));
       setBirthYear(p.birth_year ? String(p.birth_year) : '');
+      setRunningStartYear(p.running_start_year ? String(p.running_start_year) : '');
       setWeeklyKm(p.weekly_km ? String(p.weekly_km) : '30');
     } catch (e) {
       Alert.alert('导入失败', String(e));
@@ -178,6 +182,14 @@ export default function ProfileScreen() {
             placeholder="如：1985"
             keyboardType="number-pad"
             hint="用于估算最大心率"
+          />
+          <ProfileField
+            label="开始跑步年份"
+            value={runningStartYear}
+            onChangeText={setRunningStartYear}
+            placeholder="如：2018"
+            keyboardType="number-pad"
+            hint="用于个性化训练建议和疲劳阈值"
           />
           <TouchableOpacity style={styles.estimateBtn} onPress={estimateMaxHr}>
             <Text style={styles.estimateBtnText}>根据年龄估算最大心率 →</Text>

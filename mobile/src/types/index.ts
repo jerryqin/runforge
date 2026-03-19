@@ -65,7 +65,8 @@ export interface UserProfile {
   max_hr: number;            // 最大心率
   resting_hr: number;        // 静息心率
   hr_threshold: number;      // 乳酸阈值心率(LTHR)
-  birth_year?: number;
+  birth_year?: number;       // 出生年份
+  running_start_year?: number; // 开始跑步年份
   weekly_km: number;         // 当前周跑量(km)
 }
 

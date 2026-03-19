@@ -25,6 +25,75 @@ export const RECOVERY_LOAD_THRESHOLDS = {
   recoveryRunTsb: -15,
 } as const;
 
+// ===== 个性化修正系数 =====
+
+/** 年龄修正系数：年龄越大，恢复越慢 */
+export function calcAgeModifier(age: number): number {
+  if (age < 30) return 1.0;      // 基准
+  if (age < 40) return 0.95;     // 30-39岁，恢复慢5%
+  if (age < 50) return 0.85;     // 40-49岁，恢复慢15%
+  return 0.75;                    // 50+，恢复慢25%
+}
+
+/** 跑龄修正系数：跑龄越长，疲劳耐受越好 */
+export function calcRunningYearsModifier(years: number): number {
+  if (years < 1) return 0.85;    // 新手，疲劳耐受低
+  if (years < 3) return 0.95;    // 进阶者
+  if (years < 5) return 1.0;     // 基准
+  return 1.1;                     // 5年+老鸟，疲劳耐受高10%
+}
+
+/** 体能修正系数：CTL越高，疲劳耐受越好 */
+export function calcCTLModifier(ctl: number): number {
+  if (ctl < 30) return 0.9;      // 低体能，对负TSB敏感
+  if (ctl < 50) return 1.0;      // 基准
+  if (ctl < 70) return 1.1;      // 高体能，疲劳耐受好
+  return 1.15;                    // 超高体能
+}
+
+export interface DynamicThresholds {
+  peakReadyTsb: number;
+  readyTsb: number;
+  tiredTsb: number;
+  restTsb: number;
+  recoveryRunTsb: number;
+  modifier: number;              // 综合修正系数
+}
+
+/** 计算个性化动态阈值 */
+export function calcDynamicThresholds(
+  profile: UserProfile | null,
+  metrics: FitnessMetrics
+): DynamicThresholds {
+  // 无档案或数据不足，使用默认阈值
+  if (!profile) {
+    return {
+      ...RECOVERY_LOAD_THRESHOLDS,
+      modifier: 1.0,
+    };
+  }
+
+  const currentYear = new Date().getFullYear();
+  const age = profile.birth_year ? currentYear - profile.birth_year : 30;
+  const runningYears = profile.running_start_year ? currentYear - profile.running_start_year : 1;
+
+  const ageMod = calcAgeModifier(age);
+  const yearsMod = calcRunningYearsModifier(runningYears);
+  const ctlMod = calcCTLModifier(metrics.ctl);
+
+  // 综合修正系数（近期训练和TSB是高权重，年龄/跑龄是低权重修正）
+  const modifier = ageMod * yearsMod * ctlMod;
+
+  return {
+    peakReadyTsb: RECOVERY_LOAD_THRESHOLDS.peakReadyTsb * modifier,
+    readyTsb: RECOVERY_LOAD_THRESHOLDS.readyTsb * modifier,
+    tiredTsb: RECOVERY_LOAD_THRESHOLDS.tiredTsb * modifier,
+    restTsb: RECOVERY_LOAD_THRESHOLDS.restTsb * modifier,
+    recoveryRunTsb: RECOVERY_LOAD_THRESHOLDS.recoveryRunTsb * modifier,
+    modifier,
+  };
+}
+
 const BODY_STATUS_COPY: Record<BodyStatus, { subtitle: string; todayReason: string }> = {
   [BodyStatus.READY]: {
     subtitle: '恢复状态不错，可以按计划推进今天的训练。',
@@ -190,22 +259,32 @@ export function calcBodyStatus(recentRecords: RunRecord[]): BodyStatus {
 }
 
 // ===== 将 TSB 恢复负荷映射为身体状态 =====
-export function mapFitnessMetricsToBodyStatus(metrics: FitnessMetrics): BodyStatus {
-  if (metrics.tsb <= RECOVERY_LOAD_THRESHOLDS.restTsb) return BodyStatus.REST;
-  if (metrics.tsb <= RECOVERY_LOAD_THRESHOLDS.tiredTsb) return BodyStatus.TIRED;
-  if (metrics.tsb > RECOVERY_LOAD_THRESHOLDS.readyTsb) return BodyStatus.READY;
+export function mapFitnessMetricsToBodyStatus(
+  metrics: FitnessMetrics,
+  thresholds?: DynamicThresholds
+): BodyStatus {
+  const t = thresholds || {
+    ...RECOVERY_LOAD_THRESHOLDS,
+    modifier: 1.0,
+  };
+
+  if (metrics.tsb <= t.restTsb) return BodyStatus.REST;
+  if (metrics.tsb <= t.tiredTsb) return BodyStatus.TIRED;
+  if (metrics.tsb > t.readyTsb) return BodyStatus.READY;
   return BodyStatus.NORMAL;
 }
 
 // ===== 综合身体状态 =====
 export function calcCompositeBodyStatus(
   recentRecords: RunRecord[],
-  metrics?: FitnessMetrics | null
+  metrics?: FitnessMetrics | null,
+  profile?: UserProfile | null
 ): BodyStatus {
   const recentStatus = calcBodyStatus(recentRecords);
   if (!metrics) return recentStatus;
 
-  const loadStatus = mapFitnessMetricsToBodyStatus(metrics);
+  const thresholds = calcDynamicThresholds(profile || null, metrics);
+  const loadStatus = mapFitnessMetricsToBodyStatus(metrics, thresholds);
   return Math.max(recentStatus, loadStatus) as BodyStatus;
 }
 
@@ -249,10 +328,16 @@ export interface RecoveryLoadStatusInfo {
   tip: string;
 }
 
-export function getRecoveryLoadStatusInfo(tsb: number): RecoveryLoadStatusInfo {
-  const bodyStatus = mapFitnessMetricsToBodyStatus({ atl: 0, ctl: 0, tsb });
+export function getRecoveryLoadStatusInfo(
+  tsb: number,
+  profile?: UserProfile | null,
+  ctl?: number
+): RecoveryLoadStatusInfo {
+  const metrics = { atl: 0, ctl: ctl || 0, tsb };
+  const thresholds = calcDynamicThresholds(profile || null, metrics);
+  const bodyStatus = mapFitnessMetricsToBodyStatus(metrics, thresholds);
 
-  if (tsb > RECOVERY_LOAD_THRESHOLDS.peakReadyTsb) {
+  if (tsb > thresholds.peakReadyTsb) {
     return {
       bodyStatus,
       detail: RECOVERY_LOAD_DETAIL_COPY.peak.detail,
@@ -260,7 +345,7 @@ export function getRecoveryLoadStatusInfo(tsb: number): RecoveryLoadStatusInfo {
     };
   }
 
-  if (tsb > RECOVERY_LOAD_THRESHOLDS.readyTsb) {
+  if (tsb > thresholds.readyTsb) {
     return {
       bodyStatus,
       detail: RECOVERY_LOAD_DETAIL_COPY.ready.detail,
@@ -268,7 +353,7 @@ export function getRecoveryLoadStatusInfo(tsb: number): RecoveryLoadStatusInfo {
     };
   }
 
-  if (tsb > RECOVERY_LOAD_THRESHOLDS.tiredTsb) {
+  if (tsb > thresholds.tiredTsb) {
     return {
       bodyStatus,
       detail: RECOVERY_LOAD_DETAIL_COPY.normal.detail,
@@ -276,7 +361,7 @@ export function getRecoveryLoadStatusInfo(tsb: number): RecoveryLoadStatusInfo {
     };
   }
 
-  if (tsb > RECOVERY_LOAD_THRESHOLDS.restTsb) {
+  if (tsb > thresholds.restTsb) {
     return {
       bodyStatus,
       detail: RECOVERY_LOAD_DETAIL_COPY.tired.detail,

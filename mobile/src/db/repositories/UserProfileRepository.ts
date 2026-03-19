@@ -26,9 +26,16 @@ export class SQLiteUserProfileRepository {
     // 只保留一条用户档案记录
     await db.runAsync(`DELETE FROM user_profile`);
     const result = await db.runAsync(
-      `INSERT INTO user_profile (max_hr, resting_hr, hr_threshold, birth_year, weekly_km)
-       VALUES (?, ?, ?, ?, ?)`,
-      [profile.max_hr, profile.resting_hr, profile.hr_threshold, profile.birth_year ?? null, profile.weekly_km ?? 30]
+      `INSERT INTO user_profile (max_hr, resting_hr, hr_threshold, birth_year, running_start_year, weekly_km)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        profile.max_hr,
+        profile.resting_hr,
+        profile.hr_threshold,
+        profile.birth_year ?? null,
+        profile.running_start_year ?? null,
+        profile.weekly_km ?? 30
+      ]
     );
     return { ...profile, id: result.lastInsertRowId };
   }

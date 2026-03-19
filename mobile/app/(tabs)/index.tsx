@@ -76,7 +76,7 @@ export default function HomeScreen() {
     const fitnessMetrics = prof && records.length > 0 ? calcFitnessMetrics(records, prof) : null;
 
     setRecentRecords(updated.slice(0, 7));
-    setBodyStatus(calcCompositeBodyStatus(updated, fitnessMetrics));
+    setBodyStatus(calcCompositeBodyStatus(updated, fitnessMetrics, prof));
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -234,7 +234,7 @@ export default function HomeScreen() {
         {/* 恢复与负荷 */}
         {allRecords.length > 0 && profile && (
           <Section title="恢复与负荷">
-            <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} />
+            <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} profile={profile} />
           </Section>
         )}
       </ScrollView>

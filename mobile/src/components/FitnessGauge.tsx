@@ -5,14 +5,15 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { getRecoveryLoadStatusInfo } from '../engine/AnalysisEngine';
-import { BodyStatusLabel, FitnessMetrics } from '../types';
+import { BodyStatusLabel, FitnessMetrics, UserProfile } from '../types';
 
 interface Props {
   metrics: FitnessMetrics;
+  profile?: UserProfile;
 }
 
-function getStatusInfo(tsb: number): { label: string; color: string; tip: string; detail: string } {
-  const status = getRecoveryLoadStatusInfo(tsb);
+function getStatusInfo(tsb: number, ctl: number, profile?: UserProfile): { label: string; color: string; tip: string; detail: string } {
+  const status = getRecoveryLoadStatusInfo(tsb, profile, ctl);
   return {
     label: BodyStatusLabel[status.bodyStatus],
     color: BodyStatusColors[status.bodyStatus],
@@ -21,8 +22,8 @@ function getStatusInfo(tsb: number): { label: string; color: string; tip: string
   };
 }
 
-export function FitnessGauge({ metrics }: Props) {
-  const status = getStatusInfo(metrics.tsb);
+export function FitnessGauge({ metrics, profile }: Props) {
+  const status = getStatusInfo(metrics.tsb, metrics.ctl, profile);
 
   return (
     <View style={styles.container}>
