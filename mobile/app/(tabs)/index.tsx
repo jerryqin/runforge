@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FitnessGauge } from '../../src/components/FitnessGauge';
 import { PrescriptionCard } from '../../src/components/PrescriptionCard';
-import { StatusCard } from '../../src/components/StatusCard';
 import { RunSummaryCard } from '../../src/components/RunSummaryCard';
 import {
   BorderRadius,
@@ -23,7 +22,7 @@ import {
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, getBodyStatusSubtitle, getTodayActionReason } from '../../src/engine/AnalysisEngine';
+import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics } from '../../src/engine/AnalysisEngine';
 import { buildTrainingMomentum, buildWeeklyImpact, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
@@ -128,10 +127,57 @@ export default function HomeScreen() {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
   });
 
+  // 新用户判断：无记录且档案未完善
+  const isNewUser = allRecords.length === 0 && (!profile || !profile.max_hr || profile.max_hr === 185);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  // 新用户整页引导
+  if (isNewUser) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.onboardingPage}>
+          <View style={styles.onboardingHeader}>
+            <Text style={styles.brand}>RunForge</Text>
+            <Text style={styles.date}>{today}</Text>
+          </View>
+          <View style={styles.onboardingCard}>
+            <Text style={styles.onboardingTitle}>开始你的第一步</Text>
+            <Text style={styles.onboardingBody}>
+              完成以下两步，首页就能为你生成今日行动、本周推进和身体状态分析。
+            </Text>
+            <View style={styles.onboardingSteps}>
+              <View style={styles.onboardingStep}>
+                <View style={styles.onboardingStepNum}><Text style={styles.onboardingStepNumText}>1</Text></View>
+                <Text style={styles.onboardingStepText}>录入第一次跑步记录（3km 以上）</Text>
+              </View>
+              <View style={styles.onboardingStep}>
+                <View style={styles.onboardingStepNum}><Text style={styles.onboardingStepNumText}>2</Text></View>
+                <Text style={styles.onboardingStepText}>完善个人档案（最大心率、每周跑量）</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.onboardingPrimaryBtn}
+              onPress={() => router.push('/(tabs)/input')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.onboardingPrimaryBtnText}>去录入第一次跑步</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.onboardingSecondaryBtn}
+              onPress={() => router.push('/(tabs)/profile')}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.onboardingSecondaryBtnText}>先完善个人档案</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -163,40 +209,34 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* 今日行动 */}
+        {/* 今日行动（单卡：处方 + CTA 合并） */}
         <Section title="今日行动">
           {todayPrescription ? (
-            <>
-              <PrescriptionCard prescription={todayPrescription} />
-              <View style={styles.actionHintCard}>
-                <Text style={styles.actionHintTitle}>为什么是今天这堂课？</Text>
-                <Text style={styles.actionHintText}>{buildTodayReason(bodyStatus, weeklyProgress)}</Text>
-              </View>
-              <ActionCoachCard
-                prescription={todayPrescription}
-                weeklyProgress={weeklyProgress}
-                onPrimaryPress={() =>
-                  router.push(
-                    todayPrescription.type === TrainingType.REST
-                      ? '/(tabs)/history?focus=current-week'
-                      : '/(tabs)/input'
-                  )
-                }
-                onSecondaryPress={() => router.push('/(tabs)/history?focus=current-week')}
-              />
-            </>
+            <TodayActionCard
+              prescription={todayPrescription}
+              weeklyProgress={weeklyProgress}
+              onPrimaryPress={() =>
+                router.push(
+                  todayPrescription.type === TrainingType.REST
+                    ? '/(tabs)/history?focus=current-week'
+                    : '/(tabs)/input'
+                )
+              }
+              onSecondaryPress={() => router.push('/(tabs)/history?focus=current-week')}
+            />
           ) : (
-            <>
-                <EmptyState message="先录入至少一条 3km 以上跑步记录，系统才能生成今日行动" />
-              <OnboardingActionCard
-                onPrimaryPress={() => router.push('/(tabs)/input')}
-                onSecondaryPress={() => router.push('/(tabs)/profile')}
-              />
-            </>
+            <EmptyState message="先录入至少一条 3km 以上跑步记录，系统才能生成今日行动" />
           )}
         </Section>
 
-          {/* 本周推进 */}
+        {/* 恢复与负荷（紧接今日行动，作为数据支撑） */}
+        {allRecords.length > 0 && profile && (
+          <Section title="身体状态">
+            <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} profile={profile} />
+          </Section>
+        )}
+
+        {/* 本周推进 */}
         <Section title="本周推进">
           {weeklyProgress ? (
             <WeeklyProgressCard
@@ -208,33 +248,14 @@ export default function HomeScreen() {
           )}
         </Section>
 
-        {/* 训练反馈 */}
-        <Section title="训练反馈">
-          {latest ? (
-            <>
-              <RunSummaryCard
-                record={latest}
-                onPress={() => router.push(`/record/${latest.id}`)}
-              />
-              <FeedbackCard record={latest} weeklyProgress={weeklyProgress} />
-            </>
-          ) : (
-            <EmptyState message="还没有跑步记录，录入你的第一次跑步吧" />
-          )}
-        </Section>
-
-        {/* 身体状态 */}
-        <Section title="身体状态">
-          <StatusCard
-            status={bodyStatus}
-            subtitle={getBodyStatusSubtitle(bodyStatus)}
-          />
-        </Section>
-
-        {/* 恢复与负荷 */}
-        {allRecords.length > 0 && profile && (
-          <Section title="恢复与负荷">
-            <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} profile={profile} />
+        {/* 最近一次训练 */}
+        {latest && (
+          <Section title="最近训练">
+            <RunSummaryCard
+              record={latest}
+              onPress={() => router.push(`/record/${latest.id}`)}
+            />
+            <FeedbackCard record={latest} weeklyProgress={weeklyProgress} />
           </Section>
         )}
       </ScrollView>
@@ -260,25 +281,50 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function OnboardingActionCard({
+// 今日行动单卡：PrescriptionCard + CTA 合并
+function TodayActionCard({
+  prescription,
+  weeklyProgress,
   onPrimaryPress,
   onSecondaryPress,
 }: {
+  prescription: TrainingPrescription;
+  weeklyProgress: WeeklyProgress | null;
   onPrimaryPress: () => void;
   onSecondaryPress: () => void;
 }) {
+  const isRest = prescription.type === TrainingType.REST;
+  const primaryLabel = isRest ? '查看本周推进' : '去完成今天训练';
+  const secondaryLabel = isRest ? '回顾最近训练' : '先看本周推进';
+
+  // 辅助文字：训练日显示进度揞进，休息日显示恢复提示
+  let ctaNote = '';
+  if (!isRest && weeklyProgress) {
+    if (weeklyProgress.remainingKm > 0) {
+      ctaNote = `完成后本周还差 ${weeklyProgress.remainingKm.toFixed(1)} km`;
+    } else {
+      ctaNote = '本周公里目标已达成';
+    }
+  } else if (isRest && weeklyProgress?.remainingKm) {
+    ctaNote = `本周还差 ${weeklyProgress.remainingKm.toFixed(1)} km，可在后续几天完成`;
+  }
+
   return (
-    <View style={styles.coachCard}>
-      <Text style={styles.coachTitle}>开始第一步</Text>
-      <Text style={styles.coachBody}>先录入一条训练，再补充心率与周跑量档案，首页就能开始给出“今日行动”和“本周推进”。</Text>
-
-      <TouchableOpacity style={styles.coachPrimaryBtn} onPress={onPrimaryPress} activeOpacity={0.85}>
-        <Text style={styles.coachPrimaryBtnText}>去录入第一条训练</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.coachSecondaryBtn} onPress={onSecondaryPress} activeOpacity={0.75}>
-        <Text style={styles.coachSecondaryBtnText}>先完善个人档案</Text>
-      </TouchableOpacity>
+    <View style={styles.todayCard}>
+      <PrescriptionCard prescription={prescription} />
+      <View style={styles.todayCTA}>
+        {ctaNote ? <Text style={styles.todayCTANote}>{ctaNote}</Text> : null}
+        <TouchableOpacity
+          style={[styles.todayPrimaryBtn, isRest && styles.todayPrimaryBtnRest]}
+          onPress={onPrimaryPress}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.todayPrimaryBtnText}>{primaryLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.todaySecondaryBtn} onPress={onSecondaryPress} activeOpacity={0.75}>
+          <Text style={styles.todaySecondaryBtnText}>{secondaryLabel}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -341,54 +387,16 @@ function FeedbackCard({
       <Text style={styles.feedbackTitle}>这次训练反馈</Text>
       <Text style={styles.feedbackBody}>{record.conclusion}</Text>
 
-      <View style={styles.feedbackDivider} />
-
-      <Text style={styles.feedbackSubTitle}>明日行动</Text>
-      <Text style={styles.feedbackBody}>{record.suggest}</Text>
-
       {weeklyProgress ? (
         <>
           <View style={styles.feedbackDivider} />
-          <Text style={styles.feedbackSubTitle}>本周推进</Text>
+          <Text style={styles.feedbackSubTitle}>本周节奏</Text>
           <Text style={styles.feedbackBody}>{buildWeeklyImpact(weeklyProgress)}</Text>
           <Text style={styles.feedbackMomentum}>{buildTrainingMomentum(record, weeklyProgress)}</Text>
         </>
       ) : null}
 
       {record.risk ? <Text style={styles.riskText}>⚠️ {record.risk}</Text> : null}
-    </View>
-  );
-}
-
-function ActionCoachCard({
-  prescription,
-  weeklyProgress,
-  onPrimaryPress,
-  onSecondaryPress,
-}: {
-  prescription: TrainingPrescription;
-  weeklyProgress: WeeklyProgress | null;
-  onPrimaryPress: () => void;
-  onSecondaryPress: () => void;
-}) {
-  const cta = buildActionCTA(prescription, weeklyProgress);
-
-  return (
-    <View style={styles.coachCard}>
-      <Text style={styles.coachTitle}>接下来做什么</Text>
-      <Text style={styles.coachBody}>{cta.summary}</Text>
-
-      <TouchableOpacity
-        style={[styles.coachPrimaryBtn, cta.isRestDay && styles.coachPrimaryBtnRest]}
-        onPress={onPrimaryPress}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.coachPrimaryBtnText}>{cta.primaryLabel}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.coachSecondaryBtn} onPress={onSecondaryPress} activeOpacity={0.75}>
-        <Text style={styles.coachSecondaryBtnText}>{cta.secondaryLabel}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -432,68 +440,6 @@ function ActionButton({
   );
 }
 
-function buildTodayReason(status: BodyStatus, progress: WeeklyProgress | null): string {
-  return getTodayActionReason(status, {
-    hasWeeklyProgress: Boolean(progress),
-    completionRate: progress?.completionRate,
-    longRunDone: progress?.longRunDone,
-  });
-}
-
-function buildActionCTA(
-  prescription: TrainingPrescription,
-  progress: WeeklyProgress | null
-): {
-  summary: string;
-  primaryLabel: string;
-  secondaryLabel: string;
-  isRestDay: boolean;
-} {
-  if (prescription.type === TrainingType.REST) {
-    return {
-      summary: progress?.remainingKm
-        ? `今天以恢复为主，先别硬练。本周仍有 ${progress.remainingKm.toFixed(1)} km 可在后续几天稳步完成。`
-        : '今天建议完全休息，把注意力放在恢复和观察本周节奏上。',
-      primaryLabel: '查看本周推进',
-      secondaryLabel: '回顾最近训练',
-      isRestDay: true,
-    };
-  }
-
-  if (!progress) {
-    return {
-      summary: '完成今天这次训练后，系统会继续更新你的恢复状态、今日行动和本周推进。',
-      primaryLabel: '去完成今天训练',
-      secondaryLabel: '查看历史记录',
-      isRestDay: false,
-    };
-  }
-
-  const nudges: string[] = [];
-  if (progress.remainingKm > 0) {
-    nudges.push(`完成后本周还差 ${progress.remainingKm.toFixed(1)} km`);
-  } else {
-    nudges.push('完成后可继续稳住本周节奏');
-  }
-
-  if (progress.remainingQuality > 0 && (
-    prescription.type === TrainingType.TEMPO ||
-    prescription.type === TrainingType.INTERVAL
-  )) {
-    nudges.push('这堂课会直接推进本周质量课目标');
-  }
-
-  if (!progress.longRunDone && prescription.type === TrainingType.LONG_RUN) {
-    nudges.push('这次完成后可补上本周关键长距离');
-  }
-
-  return {
-    summary: nudges.join('，') || '现在去完成训练，系统会在保存后更新本周推进。',
-    primaryLabel: '去完成今天训练',
-      secondaryLabel: '先看本周推进',
-    isRestDay: false,
-  };
-}
 
 function buildWeeklyCompletionMeta(progress: WeeklyProgress): string {
   if (progress.completionRate >= 100) {
@@ -531,30 +477,50 @@ const styles = StyleSheet.create({
   },
   section: { gap: Spacing.sm },
   sectionTitle: {
-    fontSize: FontSize.body,
+    fontSize: FontSize.caption,
     fontWeight: FontWeight.semibold,
-    color: Colors.gray2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: Colors.gray3,
+    letterSpacing: 1,
   },
-  actionHintCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+  // 今日行动单卡
+  todayCard: {
+    gap: Spacing.sm,
+  },
+  todayCTA: {
     gap: Spacing.xs,
   },
-  actionHintTitle: {
+  todayCTANote: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    textAlign: 'center',
+    paddingBottom: Spacing.xs,
+  },
+  todayPrimaryBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  todayPrimaryBtnRest: {
+    backgroundColor: Colors.gray2,
+  },
+  todayPrimaryBtnText: {
     fontSize: FontSize.body,
     fontWeight: FontWeight.semibold,
-    color: Colors.black,
+    color: Colors.white,
   },
-  actionHintText: {
-    fontSize: FontSize.body,
-    color: Colors.gray1,
-    lineHeight: 22,
+  todaySecondaryBtn: {
+    paddingVertical: Spacing.xs,
+    alignItems: 'center',
   },
+  todaySecondaryBtnText: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    fontWeight: FontWeight.medium,
+  },
+  // 旧版 coachCard 保留（空状态备用）
   coachCard: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.gray1,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
@@ -562,7 +528,6 @@ const styles = StyleSheet.create({
   coachTitle: {
     fontSize: FontSize.caption,
     color: Colors.white + 'CC',
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   coachBody: {
@@ -577,7 +542,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   coachPrimaryBtnRest: {
-    backgroundColor: Colors.gray1,
+    backgroundColor: Colors.gray2,
   },
   coachPrimaryBtnText: {
     fontSize: FontSize.body,
@@ -632,7 +597,7 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     height: 10,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.separator,
     overflow: 'hidden',
   },
   progressBarFill: {
@@ -728,7 +693,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     fontWeight: FontWeight.semibold,
     color: Colors.gray2,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   feedbackBody: {
@@ -745,5 +709,78 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.separator,
     marginVertical: Spacing.xs,
+  },
+  // 新用户引导整页
+  onboardingPage: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  onboardingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: Spacing.lg,
+  },
+  onboardingCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  onboardingTitle: {
+    fontSize: FontSize.h2,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  },
+  onboardingBody: {
+    fontSize: FontSize.body,
+    color: Colors.gray1,
+    lineHeight: 22,
+  },
+  onboardingSteps: {
+    gap: Spacing.sm,
+  },
+  onboardingStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  onboardingStepNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onboardingStepNumText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  },
+  onboardingStepText: {
+    flex: 1,
+    fontSize: FontSize.body,
+    color: Colors.black,
+  },
+  onboardingPrimaryBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  onboardingPrimaryBtnText: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.white,
+  },
+  onboardingSecondaryBtn: {
+    paddingVertical: Spacing.xs,
+    alignItems: 'center',
+  },
+  onboardingSecondaryBtnText: {
+    fontSize: FontSize.body,
+    color: Colors.gray2,
   },
 });

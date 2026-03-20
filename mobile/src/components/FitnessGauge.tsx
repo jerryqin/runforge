@@ -1,5 +1,5 @@
 /**
- * FitnessGauge - ATL/CTL/TSB 指标组件
+ * FitnessGauge - 身体状态 + ATL/CTL/TSB 指标组件（合并自 StatusCard）
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -27,16 +27,18 @@ export function FitnessGauge({ metrics, profile }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* TSB 主指标 */}
-      <View style={styles.tsbSection}>
-        <View style={[styles.tsbBadge, { backgroundColor: status.color + '20' }]}>
-          <Text style={[styles.tsbValue, { color: status.color }]}>
-            {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
-          </Text>
-          <Text style={[styles.tsbLabel, { color: status.color }]}>{status.label}</Text>
-          <Text style={[styles.tsbDetail, { color: status.color }]}>{status.detail}</Text>
+      {/* 顶部：状态标签行（替代 StatusCard） */}
+      <View style={[styles.statusRow, { borderLeftColor: status.color }]}>
+        <View style={styles.statusLeft}>
+          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
+          <View style={[styles.tsbPill, { backgroundColor: status.color + '18' }]}>
+            <Text style={[styles.tsbPillText, { color: status.color }]}>
+              TSB {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.tsbTip}>{status.tip}</Text>
+        <Text style={styles.statusDetail}>{status.detail}</Text>
       </View>
 
       {/* ATL / CTL 指标 */}
@@ -67,7 +69,6 @@ export function FitnessGauge({ metrics, profile }: Props) {
               },
             ]}
           />
-          {/* 零线标记 */}
           <View style={styles.tsbZeroMark} />
         </View>
         <View style={styles.tsbBarLabels}>
@@ -76,6 +77,9 @@ export function FitnessGauge({ metrics, profile }: Props) {
           <Text style={styles.tsbBarLabelText}>巅峰 +50</Text>
         </View>
       </View>
+
+      {/* 状态提示 */}
+      <Text style={styles.tsbTip}>{status.tip}</Text>
     </View>
   );
 }
@@ -113,18 +117,41 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
   },
-  tsbSection: { gap: Spacing.xs, alignItems: 'center' },
-  tsbBadge: {
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
-    gap: 2,
+  // 状态行（替代 StatusCard）
+  statusRow: {
+    borderLeftWidth: 4,
+    paddingLeft: Spacing.sm,
+    gap: 4,
   },
-  tsbValue: { fontSize: FontSize.h1, fontWeight: FontWeight.bold },
-  tsbLabel: { fontSize: FontSize.body, fontWeight: FontWeight.semibold },
-  tsbDetail: { fontSize: FontSize.caption, fontWeight: FontWeight.medium },
-  tsbTip: { fontSize: FontSize.caption, color: Colors.gray2, textAlign: 'center' },
+  statusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusLabel: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.semibold,
+  },
+  tsbPill: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    marginLeft: 4,
+  },
+  tsbPillText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+  },
+  statusDetail: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    marginLeft: 16,
+  },
   metricsRow: { flexDirection: 'row', gap: Spacing.md },
   gaugeItem: { flex: 1, gap: Spacing.xs },
   gaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -152,11 +179,20 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 2,
-    backgroundColor: Colors.gray3,
+    backgroundColor: Colors.white,
+    opacity: 0.6,
   },
   tsbBarLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  tsbBarLabelText: { fontSize: FontSize.small, color: Colors.gray3 },
+  tsbBarLabelText: {
+    fontSize: FontSize.small,
+    color: Colors.gray3,
+  },
+  tsbTip: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    lineHeight: 19,
+  },
 });
