@@ -57,6 +57,8 @@ const result = spawnSync(
     message,
     '--environment',
     environment,
+    '--platform',
+    'ios',
   ],
   {
     stdio: 'inherit',

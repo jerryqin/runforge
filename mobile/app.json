@@ -43,9 +43,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.jerryqin.runforge"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+
     "plugins": [
       "expo-router",
       "expo-sqlite",

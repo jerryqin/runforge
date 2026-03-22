@@ -36,7 +36,8 @@ export default function ProfileScreen() {
   const [weeklyKm, setWeeklyKm] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [backupLoading, setBackupLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
 
   useEffect(() => {
     userProfileRepo.get().then((p) => {
@@ -99,17 +100,17 @@ export default function ProfileScreen() {
 
   // 导出备份
   const handleExportBackup = async () => {
-    setBackupLoading(true);
+    setExportLoading(true);
     try {
       await backupRepo.shareBackup();
       Alert.alert(
         '备份成功',
-        '数据已导出，请保存到安全位置（如 iCloud Drive）。\n\n删除 App 前请务必备份数据！'
+        '数据已导出，请保存到安全位置（如 iCloud Drive）。'
       );
     } catch (e) {
       Alert.alert('导出失败', String(e));
     } finally {
-      setBackupLoading(false);
+      setExportLoading(false);
     }
   };
 
@@ -125,9 +126,9 @@ export default function ProfileScreen() {
         return;
       }
 
-      setBackupLoading(true);
+      setImportLoading(true);
       const { imported, skipped } = await backupRepo.importFromFile(result.assets[0].uri);
-      
+
       Alert.alert(
         '导入完成',
         `成功导入 ${imported} 条记录\n跳过 ${skipped} 条重复记录`,
@@ -146,7 +147,7 @@ export default function ProfileScreen() {
     } catch (e) {
       Alert.alert('导入失败', String(e));
     } finally {
-      setBackupLoading(false);
+      setImportLoading(false);
     }
   };
 
@@ -157,77 +158,80 @@ export default function ProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.localModeCard}>
-            <Text style={styles.localModeTitle}>阶段 1：本地模式</Text>
-            <Text style={styles.localModeText}>
-              当前版本不提供账号和云同步，训练记录、个人档案、提醒设置都只保存在本机，用于低成本验证核心留存闭环是否成立。
-            </Text>
-            <Text style={styles.localModeMeta}>换手机、删除 App 或重装前，请先导出备份。</Text>
+          {/* 页面标题 */}
+          <View style={styles.pageHeader}>
+            <Text style={styles.pageTitle}>个人档案</Text>
+            <Text style={styles.pageSubtitle}>训练分析基于这些数据做个性化计算</Text>
           </View>
 
-          {/* 提示卡片 */}
-          <View style={styles.tipCard}>
-            <Text style={styles.tipTitle}>为什么需要这些数据？</Text>
-            <Text style={styles.tipText}>
-              强度判断基于个人最大心率，而非固定值。
-              准确的档案让每次分析更贴合你的实际状况。
-            </Text>
+          {/* 个人信息 */}
+          <View style={styles.fieldCard}>
+            <Text style={styles.fieldCardTitle}>个人信息</Text>
+            <View style={styles.fieldCardBody}>
+              <ProfileField
+                label="出生年份"
+                value={birthYear}
+                onChangeText={setBirthYear}
+                placeholder="如：1985"
+                keyboardType="number-pad"
+                hint="用于年龄估算"
+              />
+              <View style={styles.fieldDivider} />
+              <ProfileField
+                label="开始跑步年份"
+                value={runningStartYear}
+                onChangeText={setRunningStartYear}
+                placeholder="如：2018"
+                keyboardType="number-pad"
+                hint="用于疲劳阈值个性化"
+              />
+              <TouchableOpacity style={styles.estimateBtn} onPress={estimateMaxHr} activeOpacity={0.7}>
+                <Text style={styles.estimateBtnText}>根据年龄估算最大心率</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* 出生年份（用于估算）*/}
-          <ProfileField
-            label="出生年份"
-            value={birthYear}
-            onChangeText={setBirthYear}
-            placeholder="如：1985"
-            keyboardType="number-pad"
-            hint="用于估算最大心率"
-          />
-          <ProfileField
-            label="开始跑步年份"
-            value={runningStartYear}
-            onChangeText={setRunningStartYear}
-            placeholder="如：2018"
-            keyboardType="number-pad"
-            hint="用于个性化训练建议和疲劳阈值"
-          />
-          <TouchableOpacity style={styles.estimateBtn} onPress={estimateMaxHr}>
-            <Text style={styles.estimateBtnText}>根据年龄估算最大心率 →</Text>
-          </TouchableOpacity>
-
-          {/* 心率参数 */}
-          <ProfileField
-            label="最大心率 (bpm)"
-            value={maxHr}
-            onChangeText={setMaxHr}
-            placeholder="如：185"
-            keyboardType="number-pad"
-            hint="以实测值最准确（如冲刺后最高心率）"
-          />
-          <ProfileField
-            label="静息心率 (bpm)"
-            value={restingHr}
-            onChangeText={setRestingHr}
-            placeholder="如：55"
-            keyboardType="number-pad"
-            hint="早晨起床前测量"
-          />
-          <ProfileField
-            label="乳酸阈值心率 LTHR (bpm)"
-            value={hrThreshold}
-            onChangeText={setHrThreshold}
-            placeholder="如：165"
-            keyboardType="number-pad"
-            hint="通常为最大心率的 87–92%"
-          />
-          <ProfileField
-            label="当前每周跑量 (km)"
-            value={weeklyKm}
-            onChangeText={setWeeklyKm}
-            placeholder="如：30"
-            keyboardType="number-pad"
-            hint="用于生成训练计划和处方的参考基准"
-          />
+          {/* 训练参数 */}
+          <View style={styles.fieldCard}>
+            <Text style={styles.fieldCardTitle}>训练参数</Text>
+            <View style={styles.fieldCardBody}>
+              <ProfileField
+                label="最大心率 (bpm)"
+                value={maxHr}
+                onChangeText={setMaxHr}
+                placeholder="如：185"
+                keyboardType="number-pad"
+                hint="以实测值最准确（如冲刺后最高心率）"
+              />
+              <View style={styles.fieldDivider} />
+              <ProfileField
+                label="静息心率 (bpm)"
+                value={restingHr}
+                onChangeText={setRestingHr}
+                placeholder="如：55"
+                keyboardType="number-pad"
+                hint="早晨起床前测量"
+              />
+              <View style={styles.fieldDivider} />
+              <ProfileField
+                label="乳酸阈值心率 LTHR (bpm)"
+                value={hrThreshold}
+                onChangeText={setHrThreshold}
+                placeholder="如：165"
+                keyboardType="number-pad"
+                hint="通常为最大心率的 87–92%"
+              />
+              <View style={styles.fieldDivider} />
+              <ProfileField
+                label="每周跑量目标 (km)"
+                value={weeklyKm}
+                onChangeText={setWeeklyKm}
+                placeholder="如：30"
+                keyboardType="number-pad"
+                hint="训练计划与处方的基准参考"
+              />
+            </View>
+          </View>
 
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -242,7 +246,7 @@ export default function ProfileScreen() {
 
           <View style={styles.reminderSection}>
             <Text style={styles.reminderTitle}>提醒与召回</Text>
-            <Text style={styles.reminderHint}>已支持每日训练提醒，可在固定时间召回用户回来看今日行动。</Text>
+            <Text style={styles.reminderHint}>开启每日训练提醒，在固定时间查看今日行动。</Text>
             <TouchableOpacity
               style={styles.reminderBtn}
               onPress={() => router.push('/reminder-settings')}
@@ -258,7 +262,7 @@ export default function ProfileScreen() {
 
           <View style={styles.toolsSection}>
             <Text style={styles.toolsTitle}>训练工具</Text>
-            <Text style={styles.toolsHint}>低频功能先收纳到这里，需要时再进入。</Text>
+            <Text style={styles.toolsHint}>赛前规划和训练安排工具，按需使用。</Text>
 
             <TouchableOpacity
               style={styles.toolItem}
@@ -287,19 +291,19 @@ export default function ProfileScreen() {
 
           {/* 数据备份 */}
           <View style={styles.backupSection}>
-            <Text style={styles.backupTitle}>💾 数据备份</Text>
+            <Text style={styles.backupTitle}>数据备份</Text>
             <Text style={styles.backupHint}>
-              当前阶段所有数据仅保存在本机。删除 App、重装或更换手机前，请先导出备份！
+              所有数据仅保存在本机。删除 App、重装或更换手机前，请先导出备份。
             </Text>
-            
+
             <View style={styles.backupBtns}>
               <TouchableOpacity
                 style={styles.backupBtn}
                 onPress={handleExportBackup}
-                disabled={backupLoading}
+                disabled={exportLoading || importLoading}
                 activeOpacity={0.7}
               >
-                {backupLoading ? (
+                {exportLoading ? (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 ) : (
                   <>
@@ -312,10 +316,10 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={styles.backupBtn}
                 onPress={handleImportBackup}
-                disabled={backupLoading}
+                disabled={importLoading || exportLoading}
                 activeOpacity={0.7}
               >
-                {backupLoading ? (
+                {importLoading ? (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 ) : (
                   <>
@@ -364,92 +368,81 @@ function ProfileField({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
-  localModeCard: {
-    backgroundColor: Colors.black,
+  container: { flex: 1, backgroundColor: Colors.background },
+  scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
+  // 页面标题
+  pageHeader: { paddingBottom: Spacing.xs },
+  pageTitle: { fontSize: FontSize.h1, fontWeight: FontWeight.bold, color: Colors.black },
+  pageSubtitle: { marginTop: 4, fontSize: FontSize.caption, color: Colors.gray3 },
+  // 字段分组卡片
+  fieldCard: {
+    backgroundColor: Colors.cardBackground,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.xs,
+    overflow: 'hidden',
   },
-  localModeTitle: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.white,
-  },
-  localModeText: {
-    fontSize: FontSize.body,
-    color: Colors.white + 'DD',
-    lineHeight: 22,
-  },
-  localModeMeta: {
+  fieldCardTitle: {
     fontSize: FontSize.caption,
-    color: Colors.white + 'B3',
-    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+    color: Colors.gray3,
+    letterSpacing: 0.5,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  tipCard: {
-    backgroundColor: Colors.primary + '15',
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.xs,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
-  },
-  tipTitle: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.primary },
-  tipText: { fontSize: FontSize.body, color: Colors.gray1, lineHeight: 22 },
-  field: { gap: Spacing.xs },
+  fieldCardBody: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
+  fieldDivider: { height: 1, backgroundColor: Colors.separator },
+  // 字段
+  field: { gap: 4 },
   fieldLabel: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.black },
   fieldHint: { fontSize: FontSize.caption, color: Colors.gray3 },
   input: {
+    marginTop: 4,
     borderWidth: 1.5,
     borderColor: Colors.separator,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     fontSize: FontSize.h3,
     color: Colors.black,
   },
-  estimateBtn: { alignSelf: 'flex-start', marginTop: -Spacing.xs },
-  estimateBtnText: { fontSize: FontSize.body, color: Colors.primary, fontWeight: FontWeight.medium },
+  // 估算按钮（outline 小按钮）
+  estimateBtn: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.gray4,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  estimateBtnText: { fontSize: FontSize.caption, color: Colors.gray2, fontWeight: FontWeight.medium },
+  // 保存按钮（改为橙色 Primary）
   saveBtn: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    marginTop: Spacing.sm,
   },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: FontSize.h3, fontWeight: FontWeight.semibold, color: Colors.white },
+  // Section 通用
   reminderSection: {
-    marginTop: Spacing.sm,
     padding: Spacing.md,
     backgroundColor: Colors.cardBackground,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
-  reminderTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.bold,
-    color: Colors.black,
-  },
-  reminderHint: {
-    fontSize: FontSize.caption,
-    color: Colors.gray2,
-    lineHeight: 18,
-  },
+  reminderTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
+  reminderHint: { fontSize: FontSize.caption, color: Colors.gray2, lineHeight: 18 },
   reminderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.separator,
+    paddingTop: Spacing.sm,
   },
-  reminderBtnLabel: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.black,
-  },
+  reminderBtnLabel: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.black },
   reminderBtnDesc: {
     marginTop: 2,
     fontSize: FontSize.caption,
@@ -458,36 +451,22 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
   toolsSection: {
-    marginTop: Spacing.sm,
     padding: Spacing.md,
     backgroundColor: Colors.cardBackground,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
-  toolsTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.bold,
-    color: Colors.black,
-  },
-  toolsHint: {
-    fontSize: FontSize.caption,
-    color: Colors.gray2,
-    lineHeight: 18,
-  },
+  toolsTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
+  toolsHint: { fontSize: FontSize.caption, color: Colors.gray2, lineHeight: 18 },
   toolItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.separator,
+    paddingTop: Spacing.sm,
   },
-  toolLabel: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.black,
-  },
+  toolLabel: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.black },
   toolDesc: {
     marginTop: 2,
     fontSize: FontSize.caption,
@@ -495,32 +474,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     maxWidth: 240,
   },
-  toolArrow: {
-    fontSize: FontSize.h2,
-    color: Colors.gray3,
-  },
+  toolArrow: { fontSize: FontSize.h2, color: Colors.gray3 },
   backupSection: {
-    marginTop: Spacing.lg,
     padding: Spacing.md,
     backgroundColor: Colors.cardBackground,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
-  backupTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.bold,
-    color: Colors.black,
-  },
-  backupHint: {
-    fontSize: FontSize.caption,
-    color: Colors.gray2,
-    lineHeight: 18,
-  },
-  backupBtns: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
+  backupTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
+  backupHint: { fontSize: FontSize.caption, color: Colors.gray2, lineHeight: 18 },
+  backupBtns: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   backupBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -530,13 +493,9 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
+    borderColor: Colors.separator,
     backgroundColor: Colors.white,
   },
   backupBtnIcon: { fontSize: FontSize.h3 },
-  backupBtnText: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.primary,
-  },
+  backupBtnText: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.gray1 },
 });
