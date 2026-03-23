@@ -692,14 +692,6 @@ const WorkoutItem = React.memo(function WorkoutItem({
       onPress={() => onImport(workout)}
       activeOpacity={0.7}
     >
-      {/* 删除按钮 */}
-      <TouchableOpacity
-        style={styles.workoutDeleteBtn}
-        onPress={(e) => { e.stopPropagation(); onDelete(itemKey); }}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.workoutDeleteBtnText}>×</Text>
-      </TouchableOpacity>
       <View style={styles.workoutItemInfo}>
         <Text style={styles.workoutItemDate}>{dateStr}</Text>
         <Text style={styles.workoutItemSource}>{workout.sourceApp}</Text>
@@ -892,19 +884,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: Colors.gray3,
   },
-  workoutDeleteBtn: {
-    position: 'absolute',
-    top: Spacing.xs,
-    right: Spacing.xs,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.gray3 + '40',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  workoutDeleteBtnText: { fontSize: 16, color: Colors.gray2, lineHeight: 20, includeFontPadding: false },
+
   ocrArea: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xl },
   ocrBtn: {
     width: '100%',

@@ -23,6 +23,7 @@ import {
 } from '../../src/constants/theme';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
 import { backupRepo } from '../../src/db/repositories/BackupRepository';
+import { getAppVersion } from '../../src/services/VersionService';
 import { UserProfile } from '../../src/types';
 
 export default function ProfileScreen() {
@@ -330,6 +331,12 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* 版本信息 */}
+          <View style={styles.versionCard}>
+            <Text style={styles.versionLabel}>当前版本号</Text>
+            <Text style={styles.versionText}>v{getAppVersion()}</Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -498,4 +505,14 @@ const styles = StyleSheet.create({
   },
   backupBtnIcon: { fontSize: FontSize.h3 },
   backupBtnText: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.gray1 },
+  // 版本信息卡片
+  versionCard: {
+    padding: Spacing.md,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  versionLabel: { fontSize: FontSize.caption, color: Colors.gray3 },
+  versionText: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.gray2 },
 });
