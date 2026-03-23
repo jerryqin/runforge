@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.black,
   },
-  group: { gap: Spacing.sm },
+  group: { gap: Spacing.md },
   weekHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

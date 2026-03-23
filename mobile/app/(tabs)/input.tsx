@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
   healthLoading: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xxl },
   healthLoadingText: { fontSize: FontSize.body, color: Colors.gray2 },
   healthLoadingSubText: { fontSize: FontSize.caption, color: Colors.gray3 },
-  workoutList: { gap: Spacing.sm },
+  workoutList: { gap: Spacing.md },
   workoutHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
