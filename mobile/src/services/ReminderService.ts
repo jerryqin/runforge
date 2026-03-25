@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { Logger } from '../utils/Logger';
 
 const STORAGE_KEY = '@runforge/daily-training-reminder';
 const ANDROID_CHANNEL_ID = 'daily-training-reminders';
@@ -27,7 +28,7 @@ function getNotificationsModule() {
   try {
     return require('expo-notifications');
   } catch (error) {
-    console.warn('[Reminder] expo-notifications unavailable', error);
+    Logger.warn('[Reminder] expo-notifications unavailable', error);
     return null;
   }
 }

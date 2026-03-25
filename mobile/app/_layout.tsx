@@ -3,15 +3,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Colors } from '../src/constants/theme';
 import { configureReminderChannel, setupReminderNotificationHandler } from '../src/services/ReminderService';
+import { Logger } from '../src/utils/Logger';
 
 export default function RootLayout() {
   useEffect(() => {
     setupReminderNotificationHandler().catch((error) => {
-      console.warn('[Reminder] failed to set notification handler', error);
+      Logger.warn('[Reminder] failed to set notification handler', error);
     });
 
     configureReminderChannel().catch((error) => {
-      console.warn('[Reminder] failed to configure channel', error);
+      Logger.warn('[Reminder] failed to configure channel', error);
     });
   }, []);
 

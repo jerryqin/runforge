@@ -17,6 +17,7 @@ import {
   HealthWorkout,
   getStatusMessage,
 } from './HealthService';
+import { Logger } from '../utils/Logger';
 
 const KEY_WORKOUTS  = '@runforge_health_workouts';
 const KEY_LAST_SYNC = '@runforge_health_last_sync';
@@ -92,7 +93,7 @@ export function useHealthData(): UseHealthDataReturn {
           [KEY_LAST_SYNC, syncDate.toISOString()],
         ]);
       } catch {
-        console.warn('[useHealthData] Failed to save cache');
+        Logger.warn('[useHealthData] Failed to save cache');
       }
     },
     []
@@ -108,7 +109,7 @@ export function useHealthData(): UseHealthDataReturn {
 
       if (!lastSyncDate) {
         // 首次同步 → 全量
-        console.log('[useHealthData] No last sync date, falling back to full sync');
+        Logger.log('[useHealthData] No last sync date, falling back to full sync');
         const data = await fetchRunningWorkouts({ days: FULL_SYNC_DAYS });
         const now = new Date();
         setWorkouts(data);
@@ -119,11 +120,11 @@ export function useHealthData(): UseHealthDataReturn {
 
       // 只拉取 lastSyncDate 以来的新记录（稍微往前 5 分钟避免边界遗漏）
       const since = new Date(lastSyncDate.getTime() - 5 * 60 * 1000);
-      console.log(`[useHealthData] Incremental sync since ${since.toISOString()}`);
+      Logger.log(`[useHealthData] Incremental sync since ${since.toISOString()}`);
       const newData = await fetchRunningWorkouts({ startDate: since });
 
       if (newData.length === 0) {
-        console.log('[useHealthData] No new workouts');
+        Logger.log('[useHealthData] No new workouts');
         const now = new Date();
         setLastSyncDate(now);
         await AsyncStorage.setItem(KEY_LAST_SYNC, now.toISOString());
@@ -143,7 +144,7 @@ export function useHealthData(): UseHealthDataReturn {
       setWorkouts(merged);
       setLastSyncDate(now);
       await saveCache(merged, now);
-      console.log(`[useHealthData] Incremental: +${merged.length - workouts.length} new, total ${merged.length}`);
+      Logger.log(`[useHealthData] Incremental: +${merged.length - workouts.length} new, total ${merged.length}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '同步训练数据失败');
     } finally {
@@ -160,13 +161,13 @@ export function useHealthData(): UseHealthDataReturn {
       const granted = await ensurePermission();
       if (!granted) return;
 
-      console.log('[useHealthData] Full sync started');
+      Logger.log('[useHealthData] Full sync started');
       const data = await fetchRunningWorkouts({ days: FULL_SYNC_DAYS });
       const now = new Date();
       setWorkouts(data);
       setLastSyncDate(now);
       await saveCache(data, now);
-      console.log(`[useHealthData] Full sync done: ${data.length} records`);
+      Logger.log(`[useHealthData] Full sync done: ${data.length} records`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '全量同步失败');
     } finally {

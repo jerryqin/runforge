@@ -9,6 +9,7 @@
  */
 
 import { Platform, NativeModules } from 'react-native';
+import { Logger } from '../utils/Logger';
 
 export interface HealthWorkout {
   sourceApp: string;
@@ -67,18 +68,18 @@ function tryLoadModule(): any {
             _healthModule[method] = nativeModule[method].bind(nativeModule);
           }
         }
-        console.log('[HealthService] Loaded via NativeModules.AppleHealthKit');
-        console.log('[HealthService] Available methods:', 
+        Logger.log('[HealthService] Loaded via NativeModules.AppleHealthKit');
+        Logger.log('[HealthService] Available methods:', 
           methods.filter(m => typeof _healthModule[m] === 'function').join(', '));
       } else {
         // NativeModules 回退到 react-native-health 包
         const rnHealth = require('react-native-health');
         _healthModule = rnHealth?.default || rnHealth;
-        console.log('[HealthService] NativeModules.AppleHealthKit not found, using package');
+        Logger.log('[HealthService] NativeModules.AppleHealthKit not found, using package');
       }
     }
   } catch (e) {
-    console.warn('[HealthService] Module load failed:', e);
+    Logger.warn('[HealthService] Module load failed:', e);
     _healthModule = null;
   }
   return _healthModule;
@@ -111,14 +112,14 @@ export async function requestHealthPermissions(): Promise<boolean> {
     if (Platform.OS === 'ios') {
       const HealthKit = mod;
       
-      console.log('[HealthService] HealthKit loaded:', typeof HealthKit);
-      console.log('[HealthService] initHealthKit:', typeof HealthKit.initHealthKit);
-      console.log('[HealthService] getSamples:', typeof HealthKit.getSamples);
-      console.log('[HealthService] NativeModules.AppleHealthKit:', 
+      Logger.log('[HealthService] HealthKit loaded:', typeof HealthKit);
+      Logger.log('[HealthService] initHealthKit:', typeof HealthKit.initHealthKit);
+      Logger.log('[HealthService] getSamples:', typeof HealthKit.getSamples);
+      Logger.log('[HealthService] NativeModules.AppleHealthKit:', 
         typeof NativeModules.AppleHealthKit);
       
       if (!HealthKit.initHealthKit) {
-        console.error('[HealthService] Native module not linked!');
+        Logger.error('[HealthService] Native module not linked!');
         return false;
       }
       
@@ -130,11 +131,11 @@ export async function requestHealthPermissions(): Promise<boolean> {
         },
       };
 
-      console.log('[HealthService] Requesting permissions...');
+      Logger.log('[HealthService] Requesting permissions...');
 
       return new Promise<boolean>((resolve) => {
         HealthKit.initHealthKit(permissions, (err: any) => {
-          console.log('[HealthService] Permission result:', err ? `denied: ${JSON.stringify(err)}` : 'granted');
+          Logger.log('[HealthService] Permission result:', err ? `denied: ${JSON.stringify(err)}` : 'granted');
           resolve(!err);
         });
       });
@@ -156,7 +157,7 @@ export async function requestHealthPermissions(): Promise<boolean> {
 
     return false;
   } catch (e) {
-    console.warn('[HealthService] Permission request failed:', e);
+    Logger.warn('[HealthService] Permission request failed:', e);
     return false;
   }
 }
@@ -171,7 +172,7 @@ export async function fetchRunningWorkouts(
 ): Promise<HealthWorkout[]> {
   const mod = tryLoadModule();
   if (!mod) {
-    console.warn('[HealthService] Module not loaded');
+    Logger.warn('[HealthService] Module not loaded');
     return [];
   }
 
@@ -179,12 +180,12 @@ export async function fetchRunningWorkouts(
   
   // 如果包装后的对象缺少方法，直接使用 NativeModules
   if (!HealthKit.getSamples && NativeModules.AppleHealthKit?.getSamples) {
-    console.warn('[HealthService] Using NativeModules.AppleHealthKit directly');
+    Logger.warn('[HealthService] Using NativeModules.AppleHealthKit directly');
     HealthKit = NativeModules.AppleHealthKit;
   }
 
   if (!HealthKit.getSamples) {
-    console.error('[HealthService] getSamples not found. The native module is not properly linked.');
+    Logger.error('[HealthService] getSamples not found. The native module is not properly linked.');
     return [];
   }
 
@@ -206,7 +207,7 @@ export async function fetchRunningWorkouts(
     //   return await fetchAndroidWorkouts(mod, startDate, endDate);
     // }
   } catch (e) {
-    console.warn('[HealthService] Fetch workouts failed:', e);
+    Logger.warn('[HealthService] Fetch workouts failed:', e);
   }
 
   return [];
@@ -226,12 +227,12 @@ async function fetchIOSWorkouts(
   startDate: Date,
   endDate: Date
 ): Promise<HealthWorkout[]> {
-  console.log('[HealthService] fetchIOSWorkouts - using getAnchoredWorkouts');
+  Logger.log('[HealthService] fetchIOSWorkouts - using getAnchoredWorkouts');
 
   // 优先使用 getAnchoredWorkouts（专为 workout 设计，能返回全部历史记录）
   // 若不可用则回退到 getSamples
   const useAnchored = typeof HealthKit?.getAnchoredWorkouts === 'function';
-  console.log('[HealthService] getAnchoredWorkouts available:', useAnchored);
+  Logger.log('[HealthService] getAnchoredWorkouts available:', useAnchored);
 
   if (useAnchored) {
     return fetchWithAnchoredWorkouts(HealthKit, startDate, endDate);
@@ -251,21 +252,21 @@ async function fetchWithAnchoredWorkouts(
       type: 'Workout',
     };
 
-    console.log('[HealthService] getAnchoredWorkouts opts:', opts);
+    Logger.log('[HealthService] getAnchoredWorkouts opts:', opts);
 
     HealthKit.getAnchoredWorkouts(opts, async (err: any, results: any) => {
       if (err) {
-        console.warn('[HealthService] getAnchoredWorkouts error:', err);
+        Logger.warn('[HealthService] getAnchoredWorkouts error:', err);
         resolve([]);
         return;
       }
 
       const rawList: any[] = results?.data || results || [];
-      console.log('[HealthService] Raw results count:', rawList.length);
+      Logger.log('[HealthService] Raw results count:', rawList.length);
 
       // 打印所有原始记录的 activityName，便于调试
       rawList.forEach((w: any, i: number) => {
-        console.log(`  [${i}] activityName="${w.activityName}" activityId=${w.activityId} source="${w.sourceName}" start=${w.start} dist=${w.distance}`);
+        Logger.log(`  [${i}] activityName="${w.activityName}" activityId=${w.activityId} source="${w.sourceName}" start=${w.start} dist=${w.distance}`);
       });
 
       const workouts: HealthWorkout[] = [];
@@ -273,7 +274,7 @@ async function fetchWithAnchoredWorkouts(
       for (const w of rawList) {
         const activityName: string = w.activityName || '';
         if (!SUPPORTED_ACTIVITY_NAMES.includes(activityName)) {
-          console.log(`  ❌ Skipped activityName="${activityName}" activityId=${w.activityId}`);
+          Logger.log(`  ❌ Skipped activityName="${activityName}" activityId=${w.activityId}`);
           continue;
         }
 
@@ -283,7 +284,7 @@ async function fetchWithAnchoredWorkouts(
             ? w.duration
             : (new Date(w.end).getTime() - new Date(w.start).getTime()) / 1000;
 
-        console.log(`  ✅ ${activityName} | ${w.sourceName} | dist=${w.distance}mi | dur=${durationSec}s`);
+        Logger.log(`  ✅ ${activityName} | ${w.sourceName} | dist=${w.distance}mi | dur=${durationSec}s`);
 
         const heartRateData = await getAverageHeartRate(
           HealthKit,
@@ -303,7 +304,7 @@ async function fetchWithAnchoredWorkouts(
         });
       }
 
-      console.log(`[HealthService] Total workouts found: ${workouts.length}`);
+      Logger.log(`[HealthService] Total workouts found: ${workouts.length}`);
       resolve(workouts);
     });
   });
@@ -324,13 +325,13 @@ async function fetchWithGetSamples(
 
     HealthKit.getSamples(opts, async (err: any, results: any[]) => {
       if (err) {
-        console.warn('[HealthService] getSamples error:', err);
+        Logger.warn('[HealthService] getSamples error:', err);
         resolve([]);
         return;
       }
 
       const rawList: any[] = results || [];
-      console.log('[HealthService] getSamples raw count:', rawList.length);
+      Logger.log('[HealthService] getSamples raw count:', rawList.length);
 
       const workouts: HealthWorkout[] = [];
 
@@ -358,7 +359,7 @@ async function fetchWithGetSamples(
         });
       }
 
-      console.log(`[HealthService] Total workouts found: ${workouts.length}`);
+      Logger.log(`[HealthService] Total workouts found: ${workouts.length}`);
       resolve(workouts);
     });
   });
