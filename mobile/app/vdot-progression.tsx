@@ -54,12 +54,6 @@ export default function VDOTProgressionScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>跑力进阶路径</Text>
-          <Text style={styles.heroTitle}>看看你当前处在哪个阶段，以及下一步的提升方向</Text>
-          <Text style={styles.heroBody}>把当前跑力放进长期坐标里看，比只看单次预测更容易判断自己正在往哪里走。</Text>
-        </View>
-
         <View style={styles.currentCard}>
           <Text style={styles.currentLabel}>当前跑力</Text>
           <Text style={styles.currentValue}>{currentVDOT.toFixed(1)}</Text>
@@ -107,28 +101,6 @@ function findProgressionLabel(vdot: number) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
   scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
-  heroCard: {
-    backgroundColor: Colors.black,
-    borderRadius: 20,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  heroEyebrow: {
-    fontSize: FontSize.caption,
-    color: Colors.white + 'CC',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heroTitle: {
-    fontSize: FontSize.h2,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-  },
-  heroBody: {
-    fontSize: FontSize.body,
-    color: Colors.white,
-    lineHeight: 22,
-  },
   currentCard: {
     backgroundColor: Colors.primary + '12',
     borderRadius: 16,
