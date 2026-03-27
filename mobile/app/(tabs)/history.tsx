@@ -128,8 +128,8 @@ export default function HistoryScreen() {
                   </View>
                   <View style={styles.summarySeparator} />
                   <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>总里程</Text>
-                    <Text style={styles.summaryValue}>{stats.totalKm}km</Text>
+                    <Text style={styles.summaryLabel}>总里程(km)</Text>
+                    <Text style={styles.summaryValue}>{stats.totalKm}</Text>
                   </View>
                   <View style={styles.summarySeparator} />
                   <View style={styles.summaryItem}>
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.medium,
   },
   summaryValue: {
-    fontSize: FontSize.h3,
+    fontSize: 17,
     fontWeight: FontWeight.bold,
     color: Colors.primary,
   },
