@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RunForge 隐私政策</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f8f8;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #1a1a1a;
+        }
+        .meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e5e5;
+        }
+        h2 {
+            font-size: 24px;
+            margin-top: 40px;
+            margin-bottom: 15px;
+            color: #1a1a1a;
+        }
+        h3 {
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        p, li {
+            margin-bottom: 12px;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ff6b35;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .summary {
+            background-color: #f0f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .checkmark {
+            color: #34c759;
+            margin-right: 8px;
+        }
+        .cross {
+            color: #ff3b30;
+            margin-right: 8px;
+        }
+        a {
+            color: #ff6b35;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid #e5e5e5;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RunForge 隐私政策</h1>
+        <div class="meta">
+            <strong>生效日期：</strong> 2026年3月25日<br>
+            <strong>最后更新：</strong> 2026年3月25日
+        </div>
+
+        <div class="highlight">
+            <strong>重要提示：</strong> RunForge 是一款纯本地运行的应用，所有数据仅存储在您的设备上，不会上传至云端或第三方服务器。
+        </div>
+
+        <h2>1. 概述</h2>
+        <p>RunForge（以下简称"本应用"或"我们"）尊重并保护用户的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。</p>
+
+        <h2>2. 我们收集哪些信息</h2>
+        
+        <h3>2.1 健康数据（通过 Apple Health）</h3>
+        <p>在您授权后，本应用可能会访问以下 Apple Health 数据：</p>
+        <ul>
+            <li><strong>跑步记录：</strong>距离、时间、路线、配速</li>
+            <li><strong>心率数据：</strong>训练时心率、平均心率、最大心率</li>
+            <li><strong>训练负荷：</strong>累积训练负荷、疲劳指数</li>
+            <li><strong>其他健身数据：</strong>卡路里消耗、海拔变化等</li>
+        </ul>
+        <p><strong>用途：</strong>用于训练分析、生成个性化训练计划、评估身体状态。</p>
+        <p><strong>存储方式：</strong>所有健康数据仅存储在您的设备本地数据库中，绝不上传至云端。</p>
+
+        <h3>2.2 用户输入的个人档案</h3>
+        <ul>
+            <li>出生年份（用于估算年龄和最大心率）</li>
+            <li>开始跑步年份（用于训练建议个性化）</li>
+            <li>最大心率、静息心率、乳酸阈值心率</li>
+            <li>每周跑量目标</li>
+        </ul>
+        <p><strong>用途：</strong>用于个性化训练算法、强度判断、疲劳阈值计算。</p>
+        <p><strong>存储方式：</strong>存储在设备本地 SQLite 数据库，仅限本设备访问。</p>
+
+        <h3>2.3 相机和相册访问</h3>
+        <p>在您授权后，本应用可能会访问：</p>
+        <ul>
+            <li><strong>相机：</strong>用于拍摄训练相关截图（如跑步手表屏幕、训练记录照片）</li>
+            <li><strong>相册：</strong>用于选择已有的训练记录图片进行 OCR 识别</li>
+        </ul>
+        <p><strong>用途：</strong>通过 OCR 技术自动识别照片中的训练数据，简化手动录入。</p>
+        <p><strong>存储方式：</strong>照片本身不会被保存，仅提取其中的文本数据并存储为训练记录。</p>
+
+        <h3>2.4 我们不收集的信息</h3>
+        <ul>
+            <li><span class="cross">❌</span>不收集位置信息（即使跑步记录包含路线，我们也不访问 GPS 定位）</li>
+            <li><span class="cross">❌</span>不收集联系人、通讯录</li>
+            <li><span class="cross">❌</span>不收集设备标识符（IDFA、设备 UUID）</li>
+            <li><span class="cross">❌</span>不使用第三方分析工具（无 Google Analytics、Facebook SDK 等）</li>
+            <li><span class="cross">❌</span>不收集或存储任何账号登录信息（当前版本无账号系统）</li>
+        </ul>
+
+        <h2>3. 信息如何使用</h2>
+        <ul>
+            <li><strong>训练分析：</strong>基于您的训练记录和个人档案，计算 VDOT、ATL/CTL/TSB 等指标</li>
+            <li><strong>训练计划生成：</strong>为您推荐个性化的训练强度、配速区间、周跑量安排</li>
+            <li><strong>身体状态评估：</strong>根据疲劳累积、恢复情况给出"今日行动"建议</li>
+        </ul>
+        <p><strong>本地处理：</strong>所有计算和分析都在您的设备本地完成，不涉及任何网络传输。</p>
+
+        <h2>4. 信息的存储与安全</h2>
+        <ul>
+            <li>所有数据存储在您的 iPhone/iPad 设备本地沙盒（Sandbox）中</li>
+            <li>数据库采用 SQLite 加密存储</li>
+            <li>受 iOS 系统沙盒保护，其他应用无法访问</li>
+        </ul>
+        <p><strong>数据删除：</strong>卸载 RunForge 后，所有本地数据将被永久删除，无法恢复。</p>
+
+        <h2>5. 数据共享与披露</h2>
+        <p>我们<strong>绝不</strong>向任何第三方共享、出售或租赁您的个人数据。由于我们不收集或存储任何服务器端数据，实际上我们无法提供任何用户数据。</p>
+
+        <h2>6. 第三方服务</h2>
+        <p>RunForge 当前版本（1.0.x）<strong>不使用任何第三方 SDK 或分析工具</strong>，包括但不限于：</p>
+        <ul>
+            <li><span class="cross">❌</span>广告网络（无广告）</li>
+            <li><span class="cross">❌</span>数据分析工具（无 Google Analytics、Firebase、Mixpanel 等）</li>
+            <li><span class="cross">❌</span>社交媒体 SDK（无 Facebook、Twitter、微信等）</li>
+            <li><span class="cross">❌</span>支付服务（无内购、订阅）</li>
+            <li><span class="cross">❌</span>云端存储（无 iCloud 同步，数据仅存本地）</li>
+        </ul>
+
+        <h2>7. 您的权利</h2>
+        <ul>
+            <li><strong>访问权：</strong>您可以随时在应用内查看您的所有数据</li>
+            <li><strong>更正权：</strong>您可以在"我的 > 个人档案"中编辑和更新您的个人信息</li>
+            <li><strong>删除权：</strong>在"历史"页面左滑删除任何训练记录，或卸载应用删除所有数据</li>
+            <li><strong>导出权：</strong>通过"我的 > 数据备份 > 导出备份"将所有数据导出为 JSON 格式</li>
+            <li><strong>撤销授权：</strong>在 iPhone 设置中随时撤销健康数据、相机、相册权限</li>
+        </ul>
+
+        <h2>8. 联系我们</h2>
+        <p>如果您对本隐私政策有任何疑问、意见或投诉，请通过以下方式联系我们：</p>
+        <ul>
+            <li><strong>邮箱：</strong> <a href="mailto:privacy@runforge.app">privacy@runforge.app</a>（请根据实际情况修改）</li>
+        </ul>
+        <p>我们将在 7 个工作日内回复您的请求。</p>
+
+        <div class="summary">
+            <h2>总结：RunForge 的隐私承诺</h2>
+            <p><span class="checkmark">✅</span>所有数据存储在您的设备本地</p>
+            <p><span class="checkmark">✅</span>不上传任何数据至云端或服务器</p>
+            <p><span class="checkmark">✅</span>不使用第三方分析或广告 SDK</p>
+            <p><span class="checkmark">✅</span>不收集设备标识符或位置信息</p>
+            <p><span class="checkmark">✅</span>您完全掌控自己的数据</p>
+        </div>
+
+        <div class="footer">
+            <p>感谢您信任 RunForge！</p>
+            <p>更新记录：2026-03-25 首次发布（v1.0.1）</p>
+        </div>
+    </div>
+</body>
+</html>
