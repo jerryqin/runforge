@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -76,6 +76,30 @@ export default function HistoryScreen() {
   // 按周分组
   const grouped = groupByWeek(records);
 
+  // 计算总体统计信息
+  const stats = useMemo(() => {
+    if (records.length === 0) return null;
+    
+    const totalKm = records.reduce((sum, r) => sum + r.distance, 0);
+    const totalSec = records.reduce((sum, r) => sum + r.duration_sec, 0);
+    const avgMinPerKm = totalSec / 60 / totalKm;
+    const minPart = Math.floor(avgMinPerKm);
+    const secPart = Math.round((avgMinPerKm - minPart) * 60);
+    
+    const dates = records.map(r => new Date(r.run_date).getTime()).sort((a, b) => b - a);
+    const startDate = new Date(dates[dates.length - 1]);
+    const endDate = new Date(dates[0]);
+    
+    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+    
+    return {
+      dateRange: `${fmt(startDate)} – ${fmt(endDate)}`,
+      totalKm: totalKm.toFixed(1),
+      avgPace: `${minPart}:${secPart.toString().padStart(2, '0')}`,
+      count: records.length,
+    };
+  }, [records]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -95,6 +119,30 @@ export default function HistoryScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerContent}>
+            {stats ? (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>时间跨度</Text>
+                    <Text style={styles.summaryValue}>{stats.dateRange}</Text>
+                  </View>
+                  <View style={styles.summarySeparator} />
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>总里程</Text>
+                    <Text style={styles.summaryValue}>{stats.totalKm}km</Text>
+                  </View>
+                  <View style={styles.summarySeparator} />
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>平均配速</Text>
+                    <Text style={styles.summaryValue}>{stats.avgPace}</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryFooter}>
+                  <Text style={styles.summaryCount}>共 {stats.count} 次训练</Text>
+                </View>
+              </View>
+            ) : null}
+            
             {focus === 'current-week' ? (
               <View style={styles.focusBanner}>
                 <Text style={styles.focusBannerTitle}>当前优先查看本周记录</Text>
@@ -172,6 +220,49 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: Spacing.md, gap: Spacing.lg },
   headerContent: { gap: Spacing.md, marginBottom: Spacing.md },
+  summaryCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  summarySeparator: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.separator,
+    marginHorizontal: Spacing.sm,
+  },
+  summaryLabel: {
+    fontSize: FontSize.caption,
+    color: Colors.gray3,
+    fontWeight: FontWeight.medium,
+  },
+  summaryValue: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.primary,
+  },
+  summaryFooter: {
+    marginTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.separator,
+    paddingTop: Spacing.xs,
+    alignItems: 'center',
+  },
+  summaryCount: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+  },
   focusBanner: {
     backgroundColor: Colors.primary + '15',
     borderRadius: 12,
