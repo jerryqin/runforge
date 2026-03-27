@@ -89,13 +89,13 @@ export default function RecordDetailScreen() {
           <BigMetric label="心率" value={`${record.avg_hr}`} unit="bpm" />
           <BigMetric label="时长" value={formatDuration(record.duration_sec)} />
           {record.tss != null && (
-            <BigMetric label="TSS" value={record.tss.toFixed(0)} unit="分" />
+            <BigMetric label="训练负荷" value={record.tss.toFixed(0)} unit="分" />
           )}
           {record.vdot != null && record.vdot > 0 && (
-            <BigMetric label="VDOT" value={record.vdot.toFixed(1)} />
+            <BigMetric label="跑力值" value={record.vdot.toFixed(1)} />
           )}
           {record.rpe != null && (
-            <BigMetric label="RPE" value={`${record.rpe}`} unit="/10" />
+            <BigMetric label="自感强度" value={`${record.rpe}`} unit="/10" />
           )}
         </View>
 
