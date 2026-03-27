@@ -1,5 +1,6 @@
+import { useFocusEffect } from 'expo-router';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -23,8 +24,13 @@ import {
 } from '../../src/constants/theme';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
 import { backupRepo } from '../../src/db/repositories/BackupRepository';
+import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { getAppVersion } from '../../src/services/VersionService';
-import { UserProfile } from '../../src/types';
+import { VDOTTrendCard } from '../../src/components/VDOTTrendCard';
+import { TrainingZonesCard } from '../../src/components/TrainingZonesCard';
+import { calcVDOT } from '../../src/engine/VDOTEngine';
+import { calcTrainingZones } from '../../src/engine/VDOTEngine';
+import { UserProfile, RunRecord } from '../../src/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -39,6 +45,30 @@ export default function ProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
+  const [currentVDOT, setCurrentVDOT] = useState(0);
+  const [records, setRecords] = useState<RunRecord[]>([]);
+
+  const loadAnalyticsData = useCallback(async () => {
+    const data = await runRecordRepo.fetchAll();
+    setRecords(data);
+
+    const validRecords = data
+      .filter(r => r.distance >= 3 && r.duration_sec > 0)
+      .slice(0, 5);
+
+    if (validRecords.length > 0) {
+      const vdots = validRecords.map(r => r.vdot ?? calcVDOT(r.distance, r.duration_sec));
+      const sorted = [...vdots].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      setCurrentVDOT(median);
+    } else {
+      setCurrentVDOT(0);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadAnalyticsData();
+  }, [loadAnalyticsData]));
 
   useEffect(() => {
     userProfileRepo.get().then((p) => {
@@ -245,21 +275,24 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.reminderSection}>
-            <Text style={styles.reminderTitle}>提醒与召回</Text>
-            <Text style={styles.reminderHint}>开启每日训练提醒，在固定时间查看今日行动。</Text>
-            <TouchableOpacity
-              style={styles.reminderBtn}
-              onPress={() => router.push('/reminder-settings')}
-              activeOpacity={0.8}
-            >
-              <View>
-                <Text style={styles.reminderBtnLabel}>🔔 每日训练提醒</Text>
-                <Text style={styles.reminderBtnDesc}>可开启真实本地通知，并设置固定提醒时间。</Text>
-              </View>
-              <Text style={styles.toolArrow}>›</Text>
-            </TouchableOpacity>
-          </View>
+          {/* 趋势与配速参考 */}
+          {records.length > 0 && currentVDOT > 0 ? (
+            <View style={styles.analyticsSection}>
+              <Text style={styles.analyticsTitle}>趋势与配速参考</Text>
+              <VDOTTrendCard
+                currentVDOT={currentVDOT}
+                onPress={() => router.push(`/vdot-progression?current=${currentVDOT.toFixed(1)}`)}
+                vdotHistory={records
+                  .filter(r => r.distance >= 3 && r.duration_sec > 0)
+                  .map(r => ({
+                    date: r.run_date,
+                    vdot: r.vdot ?? calcVDOT(r.distance, r.duration_sec),
+                  }))
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
+              />
+              <TrainingZonesCard zones={calcTrainingZones(currentVDOT)} vdot={currentVDOT} />
+            </View>
+          ) : null}
 
           <View style={styles.toolsSection}>
             <Text style={styles.toolsTitle}>训练工具</Text>
@@ -463,6 +496,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
+  analyticsSection: {
+    gap: Spacing.md,
+  },
+  analyticsTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
   toolsTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
   toolsHint: { fontSize: FontSize.caption, color: Colors.gray2, lineHeight: 18 },
   toolItem: {

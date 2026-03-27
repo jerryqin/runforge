@@ -90,7 +90,7 @@ RunForge - 基于 VDOT 的科学跑步训练助手
 ```
 
 **支持 URL:**
-- 可以使用隐私政策 URL: `https://yourusername.github.io/runforge/privacy-policy.html`
+- 可以使用隐私政策 URL: `https://jerryqin.github.io/runforge/privacy-policy.html`
 - 或创建专门的支持页面
 
 ### 3. 完整测试清单

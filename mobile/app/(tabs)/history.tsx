@@ -102,23 +102,7 @@ export default function HistoryScreen() {
               </View>
             ) : null}
 
-            {records.length > 0 && currentVDOT > 0 ? (
-              <View style={styles.analyticsSection}>
-                <Text style={styles.analyticsTitle}>趋势与配速参考</Text>
-                <VDOTTrendCard
-                  currentVDOT={currentVDOT}
-                  onPress={() => router.push(`/vdot-progression?current=${currentVDOT.toFixed(1)}`)}
-                  vdotHistory={records
-                    .filter(r => r.distance >= 3 && r.duration_sec > 0)
-                    .map(r => ({
-                      date: r.run_date,
-                      vdot: r.vdot ?? calcVDOT(r.distance, r.duration_sec),
-                    }))
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
-                />
-                <TrainingZonesCard zones={calcTrainingZones(currentVDOT)} vdot={currentVDOT} />
-              </View>
-            ) : null}
+
           </View>
         }
         ListEmptyComponent={
