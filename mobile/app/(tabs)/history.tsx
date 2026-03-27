@@ -224,17 +224,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,
     padding: Spacing.md,
+    paddingVertical: Spacing.lg,
     gap: Spacing.sm,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   summarySeparator: {
     width: 1,
