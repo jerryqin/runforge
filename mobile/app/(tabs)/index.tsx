@@ -214,15 +214,6 @@ export default function HomeScreen() {
           {todayPrescription ? (
             <TodayActionCard
               prescription={todayPrescription}
-              weeklyProgress={weeklyProgress}
-              onPrimaryPress={() =>
-                router.push(
-                  todayPrescription.type === TrainingType.REST
-                    ? '/(tabs)/history?focus=current-week'
-                    : '/(tabs)/input'
-                )
-              }
-              onSecondaryPress={() => router.push('/(tabs)/history?focus=current-week')}
             />
           ) : (
             <EmptyState message="先录入至少一条 3km 以上跑步记录，系统才能生成今日行动" />
@@ -284,47 +275,12 @@ function EmptyState({ message }: { message: string }) {
 // 今日行动单卡：PrescriptionCard + CTA 合并
 function TodayActionCard({
   prescription,
-  weeklyProgress,
-  onPrimaryPress,
-  onSecondaryPress,
 }: {
   prescription: TrainingPrescription;
-  weeklyProgress: WeeklyProgress | null;
-  onPrimaryPress: () => void;
-  onSecondaryPress: () => void;
 }) {
-  const isRest = prescription.type === TrainingType.REST;
-  const primaryLabel = isRest ? '查看本周推进' : '去完成今天训练';
-  const secondaryLabel = isRest ? '回顾最近训练' : '先看本周推进';
-
-  // 辅助文字：训练日显示进度揞进，休息日显示恢复提示
-  let ctaNote = '';
-  if (!isRest && weeklyProgress) {
-    if (weeklyProgress.remainingKm > 0) {
-      ctaNote = `完成后本周还差 ${weeklyProgress.remainingKm.toFixed(1)} km`;
-    } else {
-      ctaNote = '本周公里目标已达成';
-    }
-  } else if (isRest && weeklyProgress?.remainingKm) {
-    ctaNote = `本周还差 ${weeklyProgress.remainingKm.toFixed(1)} km，可在后续几天完成`;
-  }
-
   return (
     <View style={styles.todayCard}>
       <PrescriptionCard prescription={prescription} />
-      <View style={styles.todayCTA}>
-        {ctaNote ? <Text style={styles.todayCTANote}>{ctaNote}</Text> : null}
-        <TouchableOpacity
-          style={[styles.todayPrimaryBtn, isRest && styles.todayPrimaryBtnRest]}
-          onPress={onPrimaryPress}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.todayPrimaryBtnText}>{primaryLabel}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.todaySecondaryBtn} onPress={onSecondaryPress} activeOpacity={0.75}>
-          <Text style={styles.todaySecondaryBtnText}>{secondaryLabel}</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }

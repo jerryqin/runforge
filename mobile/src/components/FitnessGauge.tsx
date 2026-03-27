@@ -2,7 +2,7 @@
  * FitnessGauge - 身体状态 + ATL/CTL/TSB 指标组件（合并自 StatusCard）
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { getRecoveryLoadStatusInfo } from '../engine/AnalysisEngine';
 import { BodyStatusLabel, FitnessMetrics, UserProfile } from '../types';
@@ -25,8 +25,16 @@ function getStatusInfo(tsb: number, ctl: number, profile?: UserProfile): { label
 export function FitnessGauge({ metrics, profile }: Props) {
   const status = getStatusInfo(metrics.tsb, metrics.ctl, profile);
 
+  const handlePress = () => {
+    Alert.alert(
+      '身体状态说明',
+      '状态 > 0：体能 > 疲劳 → 身体偏恢复、状态好、适合比赛\n　常见比赛目标：+10～+25（赛前10-14天训练减量后）\n\n状态 ≈ 0：体能 ≈ 疲劳 → 训练适应中、维持期\n\n状态 < 0：疲劳 > 体能 → 累积疲劳、偏累、易受伤、不适合高强度比赛',
+      [{ text: '知道了', style: 'default' }]
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
       {/* 顶部：状态标签行（替代 StatusCard） */}
       <View style={[styles.statusRow, { borderLeftColor: status.color }]}>
         <View style={styles.statusLeft}>
@@ -34,7 +42,7 @@ export function FitnessGauge({ metrics, profile }: Props) {
           <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
           <View style={[styles.tsbPill, { backgroundColor: status.color + '18' }]}>
             <Text style={[styles.tsbPillText, { color: status.color }]}>
-              TSB {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
+              状态 {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
             </Text>
           </View>
         </View>
@@ -44,13 +52,13 @@ export function FitnessGauge({ metrics, profile }: Props) {
       {/* ATL / CTL 指标 */}
       <View style={styles.metricsRow}>
         <GaugeItem
-          label="疲劳 ATL"
+          label="疲劳"
           value={metrics.atl.toFixed(0)}
           barColor={Colors.statusRed}
           barWidth={Math.min(100, metrics.atl / 2)}
         />
         <GaugeItem
-          label="体能 CTL"
+          label="体能"
           value={metrics.ctl.toFixed(0)}
           barColor={Colors.statusGreen}
           barWidth={Math.min(100, metrics.ctl / 2)}
@@ -80,7 +88,7 @@ export function FitnessGauge({ metrics, profile }: Props) {
 
       {/* 状态提示 */}
       <Text style={styles.tsbTip}>{status.tip}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
