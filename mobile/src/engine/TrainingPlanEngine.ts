@@ -26,7 +26,7 @@ export const PlanPhaseLabel: Record<PlanPhase, string> = {
 
 export const PlanPhaseDescription: Record<PlanPhase, string> = {
   [PlanPhase.BASE]: '建立有氧基础，以轻松跑为主，逐步增加跑量',
-  [PlanPhase.BUILD]: '引入质量课（节奏跑/间歇），提升乳酸阈值和VO2max',
+  [PlanPhase.BUILD]: '引入强度课（节奏跑/间歇），提升乳酸阈值和VO2max',
   [PlanPhase.PEAK]: '高强度训练比例增加，模拟比赛节奏',
   [PlanPhase.TAPER]: '大幅减量保持强度，让身体达到最佳竞技状态',
 };
@@ -177,7 +177,7 @@ function generateWeekDays(
       break;
 
     case PlanPhase.TAPER:
-      // 减量期: 大幅减量，保持少量质量课
+      // 减量期: 大幅减量，保持少量强度课
       days.push(day(1, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones));
       days.push(day(2, TrainingType.TEMPO, round(weeklyKm * 0.20), 'T', zones,
         '短节奏跑，保持腿部速度感'));

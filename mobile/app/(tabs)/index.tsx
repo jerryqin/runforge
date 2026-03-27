@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -90,7 +91,7 @@ export default function HomeScreen() {
 
   const latest = recentRecords[0];
   const weeklyProgress = profile
-    ? calcWeeklyProgress(allRecords, profile.weekly_km ?? 30)
+    ? { ...calcWeeklyProgress(allRecords, profile.weekly_km ?? 30), currentVDOT }
     : null;
   const todayPrescription = currentVDOT > 0 && allRecords.length > 0 && profile
     ? (() => {
@@ -222,7 +223,17 @@ export default function HomeScreen() {
 
         {/* 恢复与负荷（紧接今日行动，作为数据支撑） */}
         {allRecords.length > 0 && profile && (
-          <Section title="身体状态">
+          <Section 
+            title="身体状态" 
+            infoIcon
+            onInfoPress={() => {
+              Alert.alert(
+                '身体状态说明',
+                '点击卡片可查看详细的状态解释\n\n疲劳：近期训练负荷累积（ATL）\n体能：长期有氧能力（CTL）\n状态：体能-疲劳的平衡（TSB）',
+                [{ text: '知道了', style: 'default' }]
+              );
+            }}
+          >
             <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} profile={profile} />
           </Section>
         )}
@@ -255,10 +266,29 @@ export default function HomeScreen() {
 }
 
 // ===== 子组件 =====
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ 
+  title, 
+  children, 
+  infoIcon,
+  onInfoPress 
+}: { 
+  title: string; 
+  children: React.ReactNode;
+  infoIcon?: boolean;
+  onInfoPress?: () => void;
+}) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {infoIcon && onInfoPress && (
+          <TouchableOpacity onPress={onInfoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <View style={styles.infoIcon}>
+              <Text style={styles.infoIconText}>i</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
       {children}
     </View>
   );
@@ -312,14 +342,62 @@ function WeeklyProgressCard({
 
       <View style={styles.progressStats}>
         <StatPill
-          label="质量课"
+          label="强度课"
           value={`${progress.qualityDone}/${progress.qualityTarget}`}
           positive={progress.qualityDone >= progress.qualityTarget}
+          hasInfo
+          onPress={() => {
+            const zones = calcTrainingZones(progress.currentVDOT || 0);
+            const tZone = zones.find(z => z.zone === 'T');
+            const iZone = zones.find(z => z.zone === 'I');
+            const rZone = zones.find(z => z.zone === 'R');
+            
+            const formatPace = (sec: number) => {
+              const min = Math.floor(sec / 60);
+              const s = Math.floor(sec % 60);
+              return `${min}:${s.toString().padStart(2, '0')}`;
+            };
+            
+            let message = '强度课定义：乳酸阈值（含）以上的训练\n\n';
+            message += '基于当前跑力值的强度训练配速与心率区间：\n\n';
+            
+            if (tZone) {
+              message += `T - ${tZone.label}\n`;
+              message += `配速：${formatPace(tZone.paceMinSec)} - ${formatPace(tZone.paceMaxSec)}/km\n`;
+              message += `心率：${tZone.hrPercent[0]}-${tZone.hrPercent[1]}% HRmax\n\n`;
+            }
+            
+            if (iZone) {
+              message += `I - ${iZone.label}\n`;
+              message += `配速：${formatPace(iZone.paceMinSec)} - ${formatPace(iZone.paceMaxSec)}/km\n`;
+              message += `心率：${iZone.hrPercent[0]}-${iZone.hrPercent[1]}% HRmax\n\n`;
+            }
+            
+            if (rZone) {
+              message += `R - ${rZone.label}\n`;
+              message += `配速：${formatPace(rZone.paceMinSec)} - ${formatPace(rZone.paceMaxSec)}/km\n`;
+              message += `心率：${rZone.hrPercent[0]}% HRmax`;
+            }
+            
+            Alert.alert('强度课说明', message, [{ text: '知道了' }]);
+          }}
         />
         <StatPill
           label="长距离"
           value={progress.longRunDone ? '已完成' : '未完成'}
           positive={progress.longRunDone}
+          hasInfo
+          onPress={() => {
+            Alert.alert(
+              '长距离说明',
+              '全马备赛专用标准\n\n'+
+              '为了安全完赛、不撞墙，赛前长距离满足：\n\n'+
+              '• 最低有效长距离：25km\n'+
+              '• 推荐达标长距离：28～32km\n'+
+              '• 最强备赛长距离：35～36km\n  （不建议超过 36km）',
+              [{ text: '知道了' }]
+            );
+          }}
         />
       </View>
 
@@ -361,15 +439,44 @@ function StatPill({
   label,
   value,
   positive,
+  hasInfo,
+  onPress,
 }: {
   label: string;
   value: string;
   positive?: boolean;
+  hasInfo?: boolean;
+  onPress?: () => void;
 }) {
+  const content = (
+    <>
+      <View style={styles.statPillHeader}>
+        <Text style={styles.statPillLabel}>{label}</Text>
+        {hasInfo && (
+          <View style={styles.statPillInfoIcon}>
+            <Text style={styles.statPillInfoIconText}>i</Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.statPillValue, positive && styles.statPillValuePositive]}>{value}</Text>
+    </>
+  );
+  
+  if (hasInfo && onPress) {
+    return (
+      <TouchableOpacity 
+        style={[styles.statPill, positive && styles.statPillPositive]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  
   return (
     <View style={[styles.statPill, positive && styles.statPillPositive]}>
-      <Text style={styles.statPillLabel}>{label}</Text>
-      <Text style={[styles.statPillValue, positive && styles.statPillValuePositive]}>{value}</Text>
+      {content}
     </View>
   );
 }
@@ -432,11 +539,29 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.xs,
   },
   section: { gap: Spacing.sm },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   sectionTitle: {
     fontSize: FontSize.caption,
     fontWeight: FontWeight.semibold,
     color: Colors.gray3,
     letterSpacing: 1,
+  },
+  infoIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.gray3 + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoIconText: {
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+    color: Colors.gray3,
   },
   // 今日行动单卡
   todayCard: {
@@ -591,9 +716,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.statusGreen + '50',
   },
+  statPillHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   statPillLabel: {
     fontSize: FontSize.caption,
     color: Colors.gray2,
+  },
+  statPillInfoIcon: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.gray3 + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statPillInfoIconText: {
+    fontSize: 8,
+    fontWeight: FontWeight.bold,
+    color: Colors.gray3,
   },
   statPillValue: {
     fontSize: FontSize.body,

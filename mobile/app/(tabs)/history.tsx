@@ -90,7 +90,7 @@ export default function HistoryScreen() {
     const startDate = new Date(dates[dates.length - 1]);
     const endDate = new Date(dates[0]);
     
-    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+    const fmt = (d: Date) => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
     
     return {
       dateRange: `${fmt(startDate)} – ${fmt(endDate)}`,

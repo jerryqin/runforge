@@ -138,16 +138,16 @@ const RECOVERY_LOAD_DETAIL_COPY = {
 export function calcIntensity(avgHr: number, profile: UserProfile): Intensity {
   const pct = avgHr / profile.max_hr;
   if (pct <= 0.81) return Intensity.EASY;       // ≤ 81% HRmax
-  if (pct <= 0.87) return Intensity.NORMAL;     // 82–87%
-  if (pct <= 0.93) return Intensity.HIGH;       // 88–93%
+  if (pct <= 0.84) return Intensity.NORMAL;     // 82–84%
+  if (pct <= 0.93) return Intensity.HIGH;       // 85–93% (含乳酸阈值)
   return Intensity.OVER;                         // > 93%
 }
 
 // 兼容旧版绝对心率规则（用于无 profile 时的兜底）
 export function calcIntensityByAbsHr(avgHr: number): Intensity {
   if (avgHr <= 150) return Intensity.EASY;
-  if (avgHr <= 160) return Intensity.NORMAL;
-  if (avgHr <= 170) return Intensity.HIGH;
+  if (avgHr <= 156) return Intensity.NORMAL;
+  if (avgHr <= 172) return Intensity.HIGH;       // 含乳酸阈值(~157)
   return Intensity.OVER;
 }
 

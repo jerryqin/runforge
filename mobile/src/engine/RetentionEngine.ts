@@ -9,6 +9,7 @@ export interface WeeklyProgress {
   remainingQuality: number;
   longRunDone: boolean;
   completionRate: number;
+  currentVDOT?: number;  // 当前跑力值，用于显示配速区间
 }
 
 export function calcWeeklyProgress(
@@ -29,7 +30,7 @@ export function calcWeeklyProgress(
   const qualityDone = weeklyRecords.filter(record => record.intensity >= Intensity.HIGH).length;
   const qualityTarget = weeklyTargetKm >= 40 ? 2 : 1;
   const longRunDone = weeklyRecords.some(
-    record => record.distance >= Math.max(12, weeklyTargetKm * 0.25)
+    record => record.distance >= 25  // 至少25公里才算长距离
   );
   const completionRate = Math.min(100, Math.round((completedKm / Math.max(weeklyTargetKm, 1)) * 100));
 
@@ -55,7 +56,7 @@ export function buildWeeklyProgressSummary(progress: WeeklyProgress): string {
   }
 
   if (progress.remainingQuality > 0) {
-    parts.push(`还需完成 ${progress.remainingQuality} 次质量课`);
+    parts.push(`还需完成 ${progress.remainingQuality} 次强度课`);
   }
 
   if (!progress.longRunDone) {
@@ -70,7 +71,7 @@ export function buildWeeklyImpact(
   referenceDate: Date | string = new Date()
 ): string {
   const { title } = getWeeklyContext(referenceDate);
-  return `${title}：${progress.completedKm.toFixed(1)}/${progress.targetKm} km（${progress.completionRate}%）\n质量课：${progress.qualityDone}/${progress.qualityTarget}｜长距离：${progress.longRunDone ? '已完成' : '未完成'}`;
+  return `${title}：${progress.completedKm.toFixed(1)}/${progress.targetKm} km（${progress.completionRate}%）\n强度课：${progress.qualityDone}/${progress.qualityTarget}｜长距离：${progress.longRunDone ? '已完成' : '未完成'}`;
 }
 
 export function buildTrainingMomentum(
@@ -84,16 +85,16 @@ export function buildTrainingMomentum(
     return `这次训练已帮助你完成${weekLabel}公里目标，后续以维持节奏和恢复为主。`;
   }
 
-  if (!progress.longRunDone && record.distance >= Math.max(12, progress.targetKm * 0.25)) {
+  if (!progress.longRunDone && record.distance >= 25) {
     return `这次训练已经补上了${weekLabel}关键长距离。`;
   }
 
   if (record.intensity >= Intensity.HIGH && progress.qualityDone >= progress.qualityTarget) {
-    return `这次训练已经满足${weekLabel}质量课目标。`;
+    return `这次训练已经满足${weekLabel}强度课目标。`;
   }
 
   if (record.intensity >= Intensity.HIGH) {
-    return `这次训练正在推进${weekLabel}质量课目标。`;
+    return `这次训练正在推进${weekLabel}强度课目标。`;
   }
 
   if (progress.remainingKm > 0) {
