@@ -23,7 +23,7 @@ import {
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics } from '../../src/engine/AnalysisEngine';
+import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, RecoveryPlan } from '../../src/engine/AnalysisEngine';
 import { buildTrainingMomentum, buildWeeklyImpact, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
@@ -38,6 +38,8 @@ export default function HomeScreen() {
   const [bodyStatus, setBodyStatus] = useState<BodyStatus>(BodyStatus.NORMAL);
   const [currentVDOT, setCurrentVDOT] = useState(0);
   const [profile, setProfile] = useState<any>(null);
+  const [fitnessMetrics, setFitnessMetrics] = useState<{ atl: number; ctl: number; tsb: number } | null>(null);
+  const [recoveryPlan, setRecoveryPlan] = useState<RecoveryPlan | null>(null);
 
   const load = useCallback(async () => {
     const [records, prof] = await Promise.all([
@@ -53,11 +55,12 @@ export default function HomeScreen() {
       .filter(r => r.distance >= 3 && r.duration_sec > 0)
       .slice(0, 5);
     
+    let latestVDOT = 0;
     if (validRecords.length > 0) {
       const vdots = validRecords.map(r => r.vdot ?? calcVDOT(r.distance, r.duration_sec));
       const sorted = [...vdots].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      setCurrentVDOT(median);
+      latestVDOT = sorted[Math.floor(sorted.length / 2)];
+      setCurrentVDOT(latestVDOT);
     }
 
     // 根据最新 max_hr 重新计算每条记录的强度和相关文案
@@ -73,10 +76,12 @@ export default function HomeScreen() {
       };
     });
     
-    const fitnessMetrics = prof && records.length > 0 ? calcFitnessMetrics(records, prof) : null;
+    const metrics = prof && records.length > 0 ? calcFitnessMetrics(records, prof) : null;
 
+    setFitnessMetrics(metrics);
     setRecentRecords(updated.slice(0, 7));
-    setBodyStatus(calcCompositeBodyStatus(updated, fitnessMetrics, prof));
+    setBodyStatus(calcCompositeBodyStatus(updated, metrics, prof));
+    setRecoveryPlan(metrics ? generateRecoveryPlan(metrics.tsb, metrics.ctl, latestVDOT) : null);
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -93,9 +98,9 @@ export default function HomeScreen() {
   const weeklyProgress = profile
     ? { ...calcWeeklyProgress(allRecords, profile.weekly_km ?? 30), currentVDOT }
     : null;
-  const todayPrescription = currentVDOT > 0 && allRecords.length > 0 && profile
+  const todayPrescription = currentVDOT > 0 && allRecords.length > 0 && profile && fitnessMetrics
     ? (() => {
-        const metrics = calcFitnessMetrics(allRecords, profile);
+        const metrics = fitnessMetrics;
         const now = new Date();
         const weekday = now.getDay() === 0 ? 7 : now.getDay();
 
@@ -222,7 +227,7 @@ export default function HomeScreen() {
         </Section>
 
         {/* 恢复与负荷（紧接今日行动，作为数据支撑） */}
-        {allRecords.length > 0 && profile && (
+        {allRecords.length > 0 && profile && fitnessMetrics && (
           <Section 
             title="身体状态" 
             infoIcon
@@ -234,7 +239,11 @@ export default function HomeScreen() {
               );
             }}
           >
-            <FitnessGauge metrics={calcFitnessMetrics(allRecords, profile)} profile={profile} />
+            <FitnessGauge
+              metrics={fitnessMetrics}
+              profile={profile}
+              recoveryPlan={recoveryPlan}
+            />
           </Section>
         )}
 

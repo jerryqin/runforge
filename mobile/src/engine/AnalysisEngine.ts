@@ -157,27 +157,64 @@ export function calcTSS(durationSec: number, avgHr: number, lthr: number): numbe
   return (durationSec * avgHr * avgHr) / (lthr * lthr * 3600) * 100;
 }
 
+// ===== 日期差（天） =====
+function daysBetween(dateA: string, dateB: string): number {
+  return Math.round(
+    (new Date(dateB).getTime() - new Date(dateA).getTime()) / (24 * 60 * 60 * 1000)
+  );
+}
+
 // ===== ATL / CTL / TSB =====
-// 使用指数移动平均（EMA）
+// 使用指数移动平均（EMA），正确处理休息日（无记录日）的衰减
+// ATL/CTL 每天都在衰减，无训练日 TSS=0，恢复时疲劳(ATL)下降而体能(CTL)缓慢下降
 export function calcFitnessMetrics(
   records: RunRecord[],
-  profile: UserProfile
+  profile: UserProfile,
+  asOfDate?: string  // 默认为今天，可用于历史回测
 ): FitnessMetrics {
   if (records.length === 0) return { atl: 0, ctl: 0, tsb: 0 };
 
-  // 按日期升序排列
-  const sorted = [...records].sort((a, b) => a.run_date.localeCompare(b.run_date));
+  const kAtl = 1 - Math.exp(-1 / ATL_DAYS);
+  const kCtl = 1 - Math.exp(-1 / CTL_DAYS);
+  // 每天的自然衰减系数（TSS=0时）
+  const decayAtl = Math.exp(-1 / ATL_DAYS);  // = 1 - kAtl
+  const decayCtl = Math.exp(-1 / CTL_DAYS);  // = 1 - kCtl
+
+  // 将同日多条记录的 TSS 合并
+  const tssByDate = new Map<string, number>();
+  for (const record of records) {
+    const tss = record.tss ?? calcTSS(record.duration_sec, record.avg_hr, profile.hr_threshold);
+    tssByDate.set(record.run_date, (tssByDate.get(record.run_date) ?? 0) + tss);
+  }
+
+  const dates = [...tssByDate.keys()].sort();
 
   let atl = 0;
   let ctl = 0;
+  let prevDate: string | null = null;
 
-  const kAtl = 1 - Math.exp(-1 / ATL_DAYS);
-  const kCtl = 1 - Math.exp(-1 / CTL_DAYS);
-
-  for (const record of sorted) {
-    const tss = record.tss ?? calcTSS(record.duration_sec, record.avg_hr, profile.hr_threshold);
+  for (const date of dates) {
+    if (prevDate !== null) {
+      const gap = daysBetween(prevDate, date);
+      // 在本次训练日之前，先将上次训练后的休息日（gap-1天）衰减掉
+      if (gap > 1) {
+        atl *= Math.pow(decayAtl, gap - 1);
+        ctl *= Math.pow(decayCtl, gap - 1);
+      }
+    }
+    // 应用本日训练 TSS
+    const tss = tssByDate.get(date)!;
     atl = atl + kAtl * (tss - atl);
     ctl = ctl + kCtl * (tss - ctl);
+    prevDate = date;
+  }
+
+  // 将最后一次训练日到今天（或 asOfDate）之间的休息日继续衰减
+  const today = asOfDate ?? new Date().toISOString().split('T')[0];
+  if (prevDate && today > prevDate) {
+    const gapToToday = daysBetween(prevDate, today);
+    atl *= Math.pow(decayAtl, gapToToday);
+    ctl *= Math.pow(decayCtl, gapToToday);
   }
 
   return { atl, ctl, tsb: ctl - atl };
@@ -445,4 +482,312 @@ export function analyze(input: AnalysisInput): AnalysisOutput {
   const suggest = buildSuggest(intensity, distance, recentRecords);
   const risk = buildRisk(intensity, recentRecords);
   return { intensity, avgPace, conclusion, suggest, risk, tss, vdot, rpe, cadence };
+}
+
+// ===== 恢复计划（TSB < -30 时自动生成） =====
+
+export interface RecoveryDayPlan {
+  day: number;        // 第几天（1-7）
+  label: string;      // 训练类型标签，如 "完全休息" / "恢复跑" / "轻松跑"
+  tasks: string[];    // 具体活动描述
+  objective: string;  // 核心目的
+  isRunDay: boolean;  // 是否跑步日
+}
+
+export interface RecoveryWeekPlan {
+  weekNumber: number;
+  weekTitle: string;    // "压疲劳周" / "重建周"
+  weekSubtitle: string; // "总跑量约 Xkm"
+  days: RecoveryDayPlan[];
+}
+
+export interface RecoveryPlan {
+  weeks: RecoveryWeekPlan[];
+  summary: string; // 整体说明，说明为什么需要恢复及预期效果
+}
+
+/**
+ * 根据用户真实数据智能生成 1-4 周恢复计划
+ * 周数根据 TSB 深度动态决定：
+ * - TSB >= -30: 无需计划
+ * - -50 < TSB < -30: 1周压疲劳计划
+ * - -70 < TSB <= -50: 2周（1周压疲劳 + 1周重建）
+ * - TSB <= -70: 3周（1周压疲劳 + 2周重建）
+ * @param tsb  当前 TSB（TSB < -30 才会生成计划）
+ * @param ctl  当前 CTL（体能水平，影响建议跑量）
+ * @param vdot 当前 VDOT（影响配速描述）
+ */
+export function generateRecoveryPlan(
+  tsb: number,
+  ctl: number = 0,
+  vdot: number = 0
+): RecoveryPlan | null {
+  if (tsb >= -30) return null;
+
+  // ── 配速描述辅助函数 ──────────────────────────────────
+  const fmtPace = (secPerKm: number): string => {
+    const m = Math.floor(secPerKm / 60);
+    const s = Math.round(secPerKm % 60);
+    return `${m}'${s.toString().padStart(2, '0')}"`;
+  };
+
+  // 轻松跑配速：E 区慢端（约 59% VO2max），无 VDOT 时用文字兜底
+  let easyPaceDesc = '比平时配速慢 30-40 秒';
+  let recoPaceDesc = '极慢，可以轻松说话';
+  let tempoKm = 5;
+  let easyKmWeek1 = 6;  // 第1周单次轻松跑距离
+  let easyKmWeek2 = 10; // 第2周单次轻松跑距离
+
+  if (vdot > 0) {
+    // E 区：约 59-74% VO2max → 慢端（59%）用于恢复周
+    const v = vdot;
+    const paceAtPct = (pct: number): number => {
+      const vo2 = v * pct;
+      const a = 0.000104, b = 0.182258, c = -4.60 - vo2;
+      const disc = b * b - 4 * a * c;
+      if (disc < 0) return 480;
+      const speed = (-b + Math.sqrt(disc)) / (2 * a);
+      return speed > 0 ? (1000 / speed) * 60 : 480;
+    };
+    const ePaceSlow = paceAtPct(0.59);   // E 区慢端，恢复跑用
+    const ePaceFast = paceAtPct(0.70);   // E 区中段，轻松跑用
+    easyPaceDesc = `E区 ${fmtPace(ePaceFast)} /km`;
+    recoPaceDesc = `极松 ${fmtPace(ePaceSlow)} /km`;
+    tempoKm = Math.min(8, Math.max(4, Math.round(ctl * 0.08)));
+  }
+
+  // 基于 CTL 调整第1周跑量（CTL 越高体能越好，恢复期也能跑多一点）
+  easyKmWeek1 = Math.min(10, Math.max(4, Math.round(ctl * 0.10)));
+  easyKmWeek2 = Math.min(16, Math.max(8, Math.round(ctl * 0.16)));
+  const week1TotalKm = Math.round(easyKmWeek1 * 2 + 2); // 约两次轻松跑
+  const week2TotalKm = Math.round(easyKmWeek2 * 2 + tempoKm + 4); // 逐步重建
+
+  // ── 第 1 周：压疲劳 ──────────────────────────────────
+  const week1: RecoveryWeekPlan = {
+    weekNumber: 1,
+    weekTitle: '压疲劳周',
+    weekSubtitle: `总跑量约 ${week1TotalKm}km`,
+    days: [
+      {
+        day: 1,
+        label: '完全休息',
+        tasks: ['完全休息或 2km 以内散步', '保证 7-9 小时睡眠'],
+        objective: '让 ATL（急性疲劳）快速开始下降',
+        isRunDay: false,
+      },
+      {
+        day: 2,
+        label: '完全休息',
+        tasks: ['完全休息', '热水泡脚或肌肉热敷 15 分钟'],
+        objective: '深度修复，缓解肌肉酸痛',
+        isRunDay: false,
+      },
+      {
+        day: 3,
+        label: '恢复跑',
+        tasks: [
+          `${easyKmWeek1}km 极轻松跑（${recoPaceDesc}）`,
+          '跑完全身拉伸 10 分钟',
+        ],
+        objective: '维持跑步路感，不堆积新疲劳',
+        isRunDay: true,
+      },
+      {
+        day: 4,
+        label: '主动恢复',
+        tasks: ['完全休息或瑜伽 20 分钟', '泡沫轴放松腿部 10 分钟'],
+        objective: '放松筋膜，加速代谢废物排出',
+        isRunDay: false,
+      },
+      {
+        day: 5,
+        label: '轻松跑',
+        tasks: [
+          `${easyKmWeek1}km 轻松跑（${easyPaceDesc}）`,
+          '跑前动态热身，跑后静态拉伸',
+        ],
+        objective: '保住体能基础，让身体感知训练刺激',
+        isRunDay: true,
+      },
+      {
+        day: 6,
+        label: '完全休息',
+        tasks: ['完全休息', '充足碳水摄入，为明天蓄能'],
+        objective: '蓄能，准备小测试跑',
+        isRunDay: false,
+      },
+      {
+        day: 7,
+        label: '测试跑',
+        tasks: [
+          `2km 慢跑热身 + ${tempoKm}km 轻松有氧（${easyPaceDesc}）`,
+          '2km 慢走冷身',
+        ],
+        objective: '感受恢复进度，不追速度，只管感觉',
+        isRunDay: true,
+      },
+    ],
+  };
+
+  // 根据 TSB 深度决定需要几周
+  if (tsb > -50) {
+    return {
+      weeks: [week1],
+      summary: `当前疲劳指数 TSB ${tsb.toFixed(0)}，超出安全阈值（-30）。本计划帮助你在 1 周内将 TSB 提升至 -10 以上，同时尽量保住体能（CTL）。`,
+    };
+  }
+
+  // ── 第 2 周：重建 ──────────────────────────────────
+  const week2: RecoveryWeekPlan = {
+    weekNumber: 2,
+    weekTitle: '重建周',
+    weekSubtitle: `总跑量约 ${week2TotalKm}km`,
+    days: [
+      {
+        day: 1,
+        label: '轻松跑',
+        tasks: [
+          `${Math.round(easyKmWeek2 * 0.7)}km 轻松跑（${easyPaceDesc}）`,
+          '轻微拉伸',
+        ],
+        objective: '低强度重建训练节奏',
+        isRunDay: true,
+      },
+      {
+        day: 2,
+        label: '主动恢复',
+        tasks: ['完全休息或散步', '泡沫轴放松 15 分钟'],
+        objective: '维持恢复节奏，不过度积累负荷',
+        isRunDay: false,
+      },
+      {
+        day: 3,
+        label: '轻松跑',
+        tasks: [
+          `${easyKmWeek2}km 轻松跑（${easyPaceDesc}）`,
+          '跑完全身拉伸',
+        ],
+        objective: '逐步恢复训练量，感受体能回升',
+        isRunDay: true,
+      },
+      {
+        day: 4,
+        label: '主动恢复',
+        tasks: ['完全休息或低强度交叉训练（骑车 / 游泳 30 分钟）'],
+        objective: '保持心肺活跃，不给腿部增加冲击',
+        isRunDay: false,
+      },
+      {
+        day: 5,
+        label: '有氧强化',
+        tasks: [
+          `${easyKmWeek2}km 轻松跑（${easyPaceDesc}）`,
+          '最后 2km 加速至马拉松配速收尾',
+        ],
+        objective: '在有氧范围内恢复训练刺激感',
+        isRunDay: true,
+      },
+      {
+        day: 6,
+        label: '完全休息',
+        tasks: ['休息', '碳水补充，充足睡眠'],
+        objective: '为长距离做准备',
+        isRunDay: false,
+      },
+      {
+        day: 7,
+        label: '长距离',
+        tasks: [
+          `${tempoKm + 4}km 轻松长跑（${easyPaceDesc}）`,
+          '2km 慢走冷身 + 拉伸',
+        ],
+        objective: '重建有氧基础，检验恢复效果',
+        isRunDay: true,
+      },
+    ],
+  };
+
+  // TSB <= -50: 2周恢复计划
+  if (tsb > -70) {
+    return {
+      weeks: [week1, week2],
+      summary: `当前疲劳指数 TSB ${tsb.toFixed(0)}，严重超出安全阈值。本计划 2 周内循序渐进恢复训练，预计第 1 周末 TSB 回升至 -25，第 2 周末恢复至 -5 左右。`,
+    };
+  }
+
+  // ── 第 3 周：正常化重建 ──────────────────────────────────
+  const week3: RecoveryWeekPlan = {
+    weekNumber: 3,
+    weekTitle: '正常化重建周',
+    weekSubtitle: `总跑量约 ${Math.round(week2TotalKm * 1.2)}km`,
+    days: [
+      {
+        day: 1,
+        label: '轻松跑',
+        tasks: [
+          `${easyKmWeek2}km 轻松跑（${easyPaceDesc}）`,
+          '跑后全身拉伸',
+        ],
+        objective: '恢复正常训练节奏',
+        isRunDay: true,
+      },
+      {
+        day: 2,
+        label: '主动恢复',
+        tasks: ['完全休息或交叉训练'],
+        objective: '维持恢复质量',
+        isRunDay: false,
+      },
+      {
+        day: 3,
+        label: '有氧跑',
+        tasks: [
+          `${Math.round(easyKmWeek2 * 1.2)}km 轻松跑（${easyPaceDesc}）`,
+          '最后 1km 提速至马拉松配速',
+        ],
+        objective: '重建有氧能力，恢复配速感',
+        isRunDay: true,
+      },
+      {
+        day: 4,
+        label: '完全休息',
+        tasks: ['休息', '充足睡眠'],
+        objective: '准备质量课',
+        isRunDay: false,
+      },
+      {
+        day: 5,
+        label: '节奏跑',
+        tasks: [
+          `${Math.round(tempoKm * 1.2)}km 节奏跑（略快于${easyPaceDesc}）`,
+          '跑前充分热身，跑后拉伸',
+        ],
+        objective: '恢复乳酸阈值刺激',
+        isRunDay: true,
+      },
+      {
+        day: 6,
+        label: '完全休息',
+        tasks: ['休息', '碳水补充'],
+        objective: '为长距离做准备',
+        isRunDay: false,
+      },
+      {
+        day: 7,
+        label: '长距离',
+        tasks: [
+          `${Math.round((tempoKm + 4) * 1.3)}km 长距离（${easyPaceDesc}）`,
+          '2km 慢走冷身',
+        ],
+        objective: '完全恢复有氧基础能力',
+        isRunDay: true,
+      },
+    ],
+  };
+
+  // TSB <= -70: 3周恢复计划
+  return {
+    weeks: [week1, week2, week3],
+    summary: `当前疲劳指数 TSB ${tsb.toFixed(0)}，非常严重超标。本计划 3 周系统性恢复，预计第 1 周末 TSB 回升至 -40，第 2 周末至 -20，第 3 周末恢复至 0 附近。`,
+  };
 }
