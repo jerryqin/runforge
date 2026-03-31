@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../../src/constants/theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -21,6 +22,8 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
+  
   return (
     <Tabs
       screenOptions={{
@@ -47,7 +50,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '首页',
+          title: t('tabs.home'),
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} />
@@ -57,7 +60,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="input"
         options={{
-          title: '录入',
+          title: t('tabs.input'),
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'add-circle' : 'add-circle-outline'} focused={focused} />
           ),
@@ -66,7 +69,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: '历史',
+          title: t('tabs.history'),
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'list' : 'list-outline'} focused={focused} />
           ),
@@ -75,7 +78,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: '我的',
+          title: t('tabs.profile'),
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'person' : 'person-outline'} focused={focused} />
           ),

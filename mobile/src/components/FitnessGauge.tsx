@@ -4,9 +4,10 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { BodyStatusColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { getRecoveryLoadStatusInfo, RecoveryPlan } from '../engine/AnalysisEngine';
-import { BodyStatusLabel, FitnessMetrics, UserProfile } from '../types';
+import { getBodyStatusLabel, FitnessMetrics, UserProfile } from '../types';
 import { RecoveryPlanCard } from './RecoveryPlanCard';
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
 function getStatusInfo(tsb: number, ctl: number, profile?: UserProfile): { label: string; color: string; tip: string; detail: string } {
   const status = getRecoveryLoadStatusInfo(tsb, profile, ctl);
   return {
-    label: BodyStatusLabel[status.bodyStatus],
+    label: getBodyStatusLabel(status.bodyStatus),
     color: BodyStatusColors[status.bodyStatus],
     detail: status.detail,
     tip: status.tip,
@@ -26,14 +27,15 @@ function getStatusInfo(tsb: number, ctl: number, profile?: UserProfile): { label
 }
 
 export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
+  const { t } = useTranslation();
   const status = getStatusInfo(metrics.tsb, metrics.ctl, profile);
   const [planVisible, setPlanVisible] = useState(false);
 
   const handlePress = () => {
     Alert.alert(
-      '身体状态说明',
-      '状态 > 0：体能 > 疲劳 → 身体偏恢复、状态好、适合比赛\n　常见比赛目标：+10～+25（赛前10-14天训练减量后）\n\n状态 ≈ 0：体能 ≈ 疲劳 → 训练适应中、维持期\n\n状态 < 0：疲劳 > 体能 → 累积疲劳、偏累、易受伤、不适合高强度比赛',
-      [{ text: '知道了', style: 'default' }]
+      t('analysis.bodyStatusInfoTitle'),
+      t('analysis.bodyStatusInfoDetail'),
+      [{ text: t('common.ok'), style: 'default' }]
     );
   };
 
@@ -47,7 +49,7 @@ export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
             <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
             <View style={[styles.tsbPill, { backgroundColor: status.color + '18' }]}>
               <Text style={[styles.tsbPillText, { color: status.color }]}>
-                状态 {metrics.tsb > 0 ? '+' : ''}{metrics.tsb.toFixed(0)}
+                {t('analysis.tsbLabel', { value: metrics.tsb > 0 ? `+${metrics.tsb.toFixed(0)}` : metrics.tsb.toFixed(0) })}
               </Text>
             </View>
           </View>
@@ -57,13 +59,13 @@ export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
         {/* ATL / CTL 指标 */}
         <View style={styles.metricsRow}>
           <GaugeItem
-            label="疲劳"
+            label={t('analysis.fatigue')}
             value={metrics.atl.toFixed(0)}
             barColor={Colors.statusRed}
             barWidth={Math.min(100, metrics.atl / 2)}
           />
           <GaugeItem
-            label="体能"
+            label={t('analysis.fitness')}
             value={metrics.ctl.toFixed(0)}
             barColor={Colors.statusGreen}
             barWidth={Math.min(100, metrics.ctl / 2)}
@@ -85,9 +87,9 @@ export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
             <View style={styles.tsbZeroMark} />
           </View>
           <View style={styles.tsbBarLabels}>
-            <Text style={styles.tsbBarLabelText}>疲劳 -50</Text>
+            <Text style={styles.tsbBarLabelText}>{t('analysis.fatigueMin')}</Text>
             <Text style={styles.tsbBarLabelText}>0</Text>
-            <Text style={styles.tsbBarLabelText}>巅峰 +50</Text>
+            <Text style={styles.tsbBarLabelText}>{t('analysis.peak50')}</Text>
           </View>
         </View>
 
@@ -101,7 +103,7 @@ export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
             onPress={(e) => { e.stopPropagation?.(); setPlanVisible(true); }}
             activeOpacity={0.8}
           >
-            <Text style={styles.recoveryBtnText}>📋 查看恢复计划</Text>
+            <Text style={styles.recoveryBtnText}>{t('analysis.viewRecoveryPlanBtn')}</Text>
             <Text style={styles.recoveryBtnArrow}>›</Text>
           </TouchableOpacity>
         )}
@@ -118,9 +120,9 @@ export function FitnessGauge({ metrics, profile, recoveryPlan }: Props) {
           <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
             {/* 弹窗标题栏 */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>恢复计划</Text>
+              <Text style={styles.modalTitle}>{t('analysis.recoveryPlanTitle')}</Text>
               <TouchableOpacity onPress={() => setPlanVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.modalClose}>完成</Text>
+                <Text style={styles.modalClose}>{t('analysis.doneLbl')}</Text>
               </TouchableOpacity>
             </View>
             {/* 说明文字 */}

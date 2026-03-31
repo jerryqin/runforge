@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   BorderRadius,
@@ -28,12 +29,14 @@ import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { getAppVersion } from '../../src/services/VersionService';
 import { VDOTTrendCard } from '../../src/components/VDOTTrendCard';
 import { TrainingZonesCard } from '../../src/components/TrainingZonesCard';
+import { LanguageSelector } from '../../src/components/LanguageSelector';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
 import { calcTrainingZones } from '../../src/engine/VDOTEngine';
 import { UserProfile, RunRecord } from '../../src/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [maxHr, setMaxHr] = useState('');
   const [restingHr, setRestingHr] = useState('');
@@ -102,10 +105,10 @@ export default function ProfileScreen() {
 
     const wk = weeklyKm ? parseInt(weeklyKm, 10) : 30;
 
-    if (!mhr || mhr < 150 || mhr > 220) return Alert.alert('最大心率应在 150–220 之间');
-    if (!rhr || rhr < 30 || rhr > 80) return Alert.alert('静息心率应在 30–80 之间');
-    if (!lthr || lthr < 130 || lthr > 200) return Alert.alert('乳酸阈值心率应在 130–200 之间');
-    if (wk < 5 || wk > 250) return Alert.alert('周跑量应在 5–250 之间');
+    if (!mhr || mhr < 150 || mhr > 220) return Alert.alert(t('profile.errors.maxHrRange'));
+    if (!rhr || rhr < 30 || rhr > 80) return Alert.alert(t('profile.errors.restingHrRange'));
+    if (!lthr || lthr < 130 || lthr > 200) return Alert.alert(t('profile.errors.thresholdHrRange'));
+    if (wk < 5 || wk > 250) return Alert.alert(t('profile.errors.weeklyKmRange'));
 
     setSaving(true);
     try {
@@ -121,12 +124,12 @@ export default function ProfileScreen() {
   const estimateMaxHr = () => {
     const year = parseInt(birthYear, 10);
     if (!year || year < 1950 || year > 2010) {
-      return Alert.alert('请先填写有效出生年份');
+      return Alert.alert(t('profile.errors.birthYearRequired'));
     }
     const age = new Date().getFullYear() - year;
     const est = 220 - age;
     setMaxHr(String(est));
-    Alert.alert('已估算', `基于年龄（${age}岁）估算最大心率为 ${est}。\n建议后续以实测值替换。`);
+    Alert.alert(t('profile.estimated'), t('profile.estimateMaxHrMessage', { age, hr: est }));
   };
 
   // 导出备份
@@ -135,11 +138,11 @@ export default function ProfileScreen() {
     try {
       await backupRepo.shareBackup();
       Alert.alert(
-        '备份成功',
-        '数据已导出，请保存到安全位置（如 iCloud Drive）。'
+        t('profile.backupSuccess'),
+        t('profile.backupSuccessMessage')
       );
     } catch (e) {
-      Alert.alert('导出失败', String(e));
+      Alert.alert(t('input.exportFailed'), String(e));
     } finally {
       setExportLoading(false);
     }
@@ -161,9 +164,9 @@ export default function ProfileScreen() {
       const { imported, skipped } = await backupRepo.importFromFile(result.assets[0].uri);
 
       Alert.alert(
-        '导入完成',
-        `成功导入 ${imported} 条记录\n跳过 ${skipped} 条重复记录`,
-        [{ text: '确定' }]
+        t('profile.importComplete'),
+        t('profile.importResult', { imported, skipped }),
+        [{ text: t('common.ok') }]
       );
 
       // 刷新数据
@@ -176,7 +179,7 @@ export default function ProfileScreen() {
       setRunningStartYear(p.running_start_year ? String(p.running_start_year) : '');
       setWeeklyKm(p.weekly_km ? String(p.weekly_km) : '30');
     } catch (e) {
-      Alert.alert('导入失败', String(e));
+      Alert.alert(t('input.importFailed'), String(e));
     } finally {
       setImportLoading(false);
     }
@@ -191,75 +194,75 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* 页面标题 */}
           <View style={styles.pageHeader}>
-            <Text style={styles.pageTitle}>个人档案</Text>
-            <Text style={styles.pageSubtitle}>训练分析基于这些数据做个性化计算</Text>
+            <Text style={styles.pageTitle}>{t('profile.title')}</Text>
+            <Text style={styles.pageSubtitle}>{t('profile.subtitle')}</Text>
           </View>
 
           {/* 个人信息 */}
           <View style={styles.fieldCard}>
-            <Text style={styles.fieldCardTitle}>个人信息</Text>
+            <Text style={styles.fieldCardTitle}>{t('profile.personalInfo')}</Text>
             <View style={styles.fieldCardBody}>
               <ProfileField
-                label="出生年份"
+                label={t('profile.birthYear')}
                 value={birthYear}
                 onChangeText={setBirthYear}
-                placeholder="如：1985"
+                placeholder={t('profile.birth_year_hint')}
                 keyboardType="number-pad"
-                hint="用于年龄估算"
+                hint={t('profile.hints.birthYearUsage')}
               />
               <View style={styles.fieldDivider} />
               <ProfileField
-                label="开始跑步年份"
+                label={t('profile.runningStartYear')}
                 value={runningStartYear}
                 onChangeText={setRunningStartYear}
-                placeholder="如：2018"
+                placeholder={t('profile.running_start_year_hint')}
                 keyboardType="number-pad"
-                hint="用于疲劳阈值个性化"
+                hint={t('profile.hints.runningStartYearUsage')}
               />
               <TouchableOpacity style={styles.estimateBtn} onPress={estimateMaxHr} activeOpacity={0.7}>
-                <Text style={styles.estimateBtnText}>根据年龄估算最大心率</Text>
+                <Text style={styles.estimateBtnText}>{t('profile.estimateMaxHr')}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* 训练参数 */}
           <View style={styles.fieldCard}>
-            <Text style={styles.fieldCardTitle}>训练参数</Text>
+            <Text style={styles.fieldCardTitle}>{t('profile.trainingSettings')}</Text>
             <View style={styles.fieldCardBody}>
               <ProfileField
-                label="最大心率 (bpm)"
+                label={`${t('profile.maxHeartRate')} (bpm)`}
                 value={maxHr}
                 onChangeText={setMaxHr}
-                placeholder="如：185"
+                placeholder={t('profile.max_hr_hint')}
                 keyboardType="number-pad"
-                hint="以实测值最准确（如冲刺后最高心率）"
+                hint={t('profile.hints.maxHrAccuracy')}
               />
               <View style={styles.fieldDivider} />
               <ProfileField
-                label="静息心率 (bpm)"
+                label={`${t('profile.restingHeartRate')} (bpm)`}
                 value={restingHr}
                 onChangeText={setRestingHr}
-                placeholder="如：55"
+                placeholder={t('profile.resting_hr_hint')}
                 keyboardType="number-pad"
-                hint="早晨起床前测量"
+                hint={t('profile.hints.restingHrMeasure')}
               />
               <View style={styles.fieldDivider} />
               <ProfileField
-                label="乳酸阈值心率 LTHR (bpm)"
+                label={`${t('profile.thresholdHeartRate')} (bpm)`}
                 value={hrThreshold}
                 onChangeText={setHrThreshold}
-                placeholder="如：165"
+                placeholder={t('profile.threshold_hr_hint')}
                 keyboardType="number-pad"
-                hint="通常为最大心率的 87–92%"
+                hint={t('profile.hints.thresholdHrRange')}
               />
               <View style={styles.fieldDivider} />
               <ProfileField
-                label="每周跑量目标 (km)"
+                label={`${t('profile.weeklyTargetKm')} (km)`}
                 value={weeklyKm}
                 onChangeText={setWeeklyKm}
-                placeholder="如：30"
+                placeholder={t('profile.weekly_km_hint')}
                 keyboardType="number-pad"
-                hint="训练计划与处方的基准参考"
+                hint={t('profile.hints.weeklyKmUsage')}
               />
             </View>
           </View>
@@ -271,14 +274,14 @@ export default function ProfileScreen() {
             activeOpacity={0.8}
           >
             <Text style={styles.saveBtnText}>
-              {saved ? '✓ 已保存' : saving ? '保存中...' : '保存档案'}
+              {saved ? '✓ 已保存' : saving ? t('common.loading') : t('profile.saveProfile')}
             </Text>
           </TouchableOpacity>
 
           {/* 趋势与配速参考 */}
           {records.length > 0 && currentVDOT > 0 ? (
             <View style={styles.analyticsSection}>
-              <Text style={styles.analyticsTitle}>趋势与配速参考</Text>
+              <Text style={styles.analyticsTitle}>{t('profile.trendAndPaceReference')}</Text>
               <VDOTTrendCard
                 currentVDOT={currentVDOT}
                 onPress={() => router.push(`/vdot-progression?current=${currentVDOT.toFixed(1)}`)}
@@ -295,8 +298,8 @@ export default function ProfileScreen() {
           ) : null}
 
           <View style={styles.toolsSection}>
-            <Text style={styles.toolsTitle}>训练工具</Text>
-            <Text style={styles.toolsHint}>赛前规划和训练安排工具，按需使用。</Text>
+            <Text style={styles.toolsTitle}>{t('profile.trainingTools')}</Text>
+            <Text style={styles.toolsHint}>{t('profile.trainingToolsDescription')}</Text>
 
             <TouchableOpacity
               style={styles.toolItem}
@@ -304,8 +307,8 @@ export default function ProfileScreen() {
               activeOpacity={0.8}
             >
               <View>
-                <Text style={styles.toolLabel}>📅 训练计划</Text>
-                <Text style={styles.toolDesc}>生成比赛周期训练安排，适合赛季规划时使用。</Text>
+                <Text style={styles.toolLabel}>📅 {t('profile.trainingPlanTool')}</Text>
+                <Text style={styles.toolDesc}>{t('profile.trainingPlanDescription')}</Text>
               </View>
               <Text style={styles.toolArrow}>›</Text>
             </TouchableOpacity>
@@ -316,8 +319,8 @@ export default function ProfileScreen() {
               activeOpacity={0.8}
             >
               <View>
-                <Text style={styles.toolLabel}>🏁 比赛助手</Text>
-                <Text style={styles.toolDesc}>设置目标完赛时间，查看赛前与比赛日策略。</Text>
+                <Text style={styles.toolLabel}>🏁 {t('profile.raceAssistantTool')}</Text>
+                <Text style={styles.toolDesc}>{t('profile.raceAssistantDescription')}</Text>
               </View>
               <Text style={styles.toolArrow}>›</Text>
             </TouchableOpacity>
@@ -325,9 +328,9 @@ export default function ProfileScreen() {
 
           {/* 数据备份 */}
           <View style={styles.backupSection}>
-            <Text style={styles.backupTitle}>数据备份</Text>
+            <Text style={styles.backupTitle}>{t('profile.dataBackupSection')}</Text>
             <Text style={styles.backupHint}>
-              所有数据仅保存在本机。删除 App、重装或更换手机前，请先导出备份。
+              {t('profile.backupDescription')}
             </Text>
 
             <View style={styles.backupBtns}>
@@ -342,7 +345,7 @@ export default function ProfileScreen() {
                 ) : (
                   <>
                     <Text style={styles.backupBtnIcon}>📤</Text>
-                    <Text style={styles.backupBtnText}>导出备份</Text>
+                    <Text style={styles.backupBtnText}>{t('profile.exportData')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -358,16 +361,22 @@ export default function ProfileScreen() {
                 ) : (
                   <>
                     <Text style={styles.backupBtnIcon}>📥</Text>
-                    <Text style={styles.backupBtnText}>导入备份</Text>
+                    <Text style={styles.backupBtnText}>{t('profile.importData')}</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* 系统设置 */}
+          <View style={styles.settingsSection}>
+            <Text style={styles.settingsTitle}>{t('profile.systemSettings')}</Text>
+            <LanguageSelector style={styles.languageSelector} />
+          </View>
+
           {/* 版本信息 */}
           <View style={styles.versionCard}>
-            <Text style={styles.versionLabel}>当前版本号</Text>
+            <Text style={styles.versionLabel}>{t('profile.currentVersion')}</Text>
             <Text style={styles.versionText}>v{getAppVersion()}</Text>
           </View>
         </ScrollView>
@@ -542,6 +551,17 @@ const styles = StyleSheet.create({
   },
   backupBtnIcon: { fontSize: FontSize.h3 },
   backupBtnText: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.gray1 },
+  // 系统设置
+  settingsSection: {
+    padding: Spacing.md,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  settingsTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.black },
+  languageSelector: {
+    marginTop: Spacing.xs,
+  },
   // 版本信息卡片
   versionCard: {
     padding: Spacing.md,

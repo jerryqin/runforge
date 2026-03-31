@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { FitnessGauge } from '../../src/components/FitnessGauge';
 import { PrescriptionCard } from '../../src/components/PrescriptionCard';
 import { RunSummaryCard } from '../../src/components/RunSummaryCard';
@@ -31,6 +32,7 @@ import { BodyStatus, RunRecord, Intensity } from '../../src/types';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [allRecords, setAllRecords] = useState<RunRecord[]>([]);
@@ -129,7 +131,7 @@ export default function HomeScreen() {
         });
       })()
     : null;
-  const today = new Date().toLocaleDateString('zh-CN', {
+  const today = new Date().toLocaleDateString(i18n.language === 'zh' ? 'zh-CN' : 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
   });
 
@@ -154,18 +156,18 @@ export default function HomeScreen() {
             <Text style={styles.date}>{today}</Text>
           </View>
           <View style={styles.onboardingCard}>
-            <Text style={styles.onboardingTitle}>开始你的第一步</Text>
+            <Text style={styles.onboardingTitle}>{t('home.newUserTitle')}</Text>
             <Text style={styles.onboardingBody}>
-              完成以下两步，首页就能为你生成今日行动、本周推进和身体状态分析。
+              {t('home.newUserDescription')}
             </Text>
             <View style={styles.onboardingSteps}>
               <View style={styles.onboardingStep}>
                 <View style={styles.onboardingStepNum}><Text style={styles.onboardingStepNumText}>1</Text></View>
-                <Text style={styles.onboardingStepText}>录入第一次跑步记录（3km 以上）</Text>
+                <Text style={styles.onboardingStepText}>{t('home.newUserStep1')}</Text>
               </View>
               <View style={styles.onboardingStep}>
                 <View style={styles.onboardingStepNum}><Text style={styles.onboardingStepNumText}>2</Text></View>
-                <Text style={styles.onboardingStepText}>完善个人档案（最大心率、每周跑量）</Text>
+                <Text style={styles.onboardingStepText}>{t('home.newUserStep2')}</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -173,14 +175,14 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/input')}
               activeOpacity={0.85}
             >
-              <Text style={styles.onboardingPrimaryBtnText}>去录入第一次跑步</Text>
+              <Text style={styles.onboardingPrimaryBtnText}>{t('home.newUserPrimaryBtn')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.onboardingSecondaryBtn}
               onPress={() => router.push('/(tabs)/profile')}
               activeOpacity={0.75}
             >
-              <Text style={styles.onboardingSecondaryBtnText}>先完善个人档案</Text>
+              <Text style={styles.onboardingSecondaryBtnText}>{t('home.newUserSecondaryBtn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -205,37 +207,37 @@ export default function HomeScreen() {
         {/* 快捷操作 */}
         <View style={styles.actionGrid}>
           <ActionButton
-            label="📝 开始记录"
+            label={t('home.actionRecord')}
             onPress={() => router.push('/(tabs)/input')}
             primary
           />
           <ActionButton
-            label="📚 查看历史"
+            label={t('home.actionHistory')}
             onPress={() => router.push('/(tabs)/history')}
           />
         </View>
 
         {/* 今日行动（单卡：处方 + CTA 合并） */}
-        <Section title="今日行动">
+        <Section title={t('home.todayAction')}>
           {todayPrescription ? (
             <TodayActionCard
               prescription={todayPrescription}
             />
           ) : (
-            <EmptyState message="先录入至少一条 3km 以上跑步记录，系统才能生成今日行动" />
+            <EmptyState message={t('home.emptyTodayAction')} />
           )}
         </Section>
 
         {/* 恢复与负荷（紧接今日行动，作为数据支撑） */}
         {allRecords.length > 0 && profile && fitnessMetrics && (
           <Section 
-            title="身体状态" 
+            title={t('home.bodyStatus')} 
             infoIcon
             onInfoPress={() => {
               Alert.alert(
-                '身体状态说明',
-                '点击卡片可查看详细的状态解释\n\n疲劳：近期训练负荷累积（ATL）\n体能：长期有氧能力（CTL）\n状态：体能-疲劳的平衡（TSB）',
-                [{ text: '知道了', style: 'default' }]
+                t('home.bodyStatusInfo'),
+                t('home.bodyStatusDescription'),
+                [{ text: t('common.ok'), style: 'default' }]
               );
             }}
           >
@@ -248,20 +250,20 @@ export default function HomeScreen() {
         )}
 
         {/* 本周推进 */}
-        <Section title="本周推进">
+        <Section title={t('home.weeklyProgress')}>
           {weeklyProgress ? (
             <WeeklyProgressCard
               progress={weeklyProgress}
               onPress={() => router.push('/(tabs)/history?focus=current-week')}
             />
           ) : (
-            <EmptyState message="保存个人档案后，这里会显示你的周目标完成情况" />
+            <EmptyState message={t('home.emptyWeeklyProgress')} />
           )}
         </Section>
 
         {/* 最近一次训练 */}
         {latest && (
-          <Section title="最近训练">
+          <Section title={t('home.recentTraining')}>
             <RunSummaryCard
               record={latest}
               onPress={() => router.push(`/record/${latest.id}`)}
@@ -331,11 +333,12 @@ function WeeklyProgressCard({
   progress: WeeklyProgress;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity style={styles.progressCard} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.progressHeader}>
         <View>
-          <Text style={styles.progressLabel}>已完成</Text>
+          <Text style={styles.progressLabel}>{t('weeklyProgress.completed')}</Text>
           <Text style={styles.progressValue}>
             {progress.completedKm.toFixed(1)} / {progress.targetKm.toFixed(0)} km
           </Text>
@@ -351,7 +354,7 @@ function WeeklyProgressCard({
 
       <View style={styles.progressStats}>
         <StatPill
-          label="强度课"
+          label={t('weeklyProgress.intensityWorkouts')}
           value={`${progress.qualityDone}/${progress.qualityTarget}`}
           positive={progress.qualityDone >= progress.qualityTarget}
           hasInfo
@@ -367,44 +370,40 @@ function WeeklyProgressCard({
               return `${min}:${s.toString().padStart(2, '0')}`;
             };
             
-            let message = '强度课定义：乳酸阈值（含）以上的训练\n\n';
-            message += '基于当前跑力值的强度训练配速与心率区间：\n\n';
+            let message = t('weeklyProgress.intensityWorkoutDefinition') + '\n\n';
+            message += t('weeklyProgress.intensityZoneHeader') + '\n\n';
             
             if (tZone) {
               message += `T - ${tZone.label}\n`;
-              message += `配速：${formatPace(tZone.paceMinSec)} - ${formatPace(tZone.paceMaxSec)}/km\n`;
-              message += `心率：${tZone.hrPercent[0]}-${tZone.hrPercent[1]}% HRmax\n\n`;
+              message += `${t('weeklyProgress.paceLabel')}：${formatPace(tZone.paceMinSec)} - ${formatPace(tZone.paceMaxSec)}/km\n`;
+              message += `${t('weeklyProgress.heartRateLabel')}：${tZone.hrPercent[0]}-${tZone.hrPercent[1]}% HRmax\n\n`;
             }
             
             if (iZone) {
               message += `I - ${iZone.label}\n`;
-              message += `配速：${formatPace(iZone.paceMinSec)} - ${formatPace(iZone.paceMaxSec)}/km\n`;
-              message += `心率：${iZone.hrPercent[0]}-${iZone.hrPercent[1]}% HRmax\n\n`;
+              message += `${t('weeklyProgress.paceLabel')}：${formatPace(iZone.paceMinSec)} - ${formatPace(iZone.paceMaxSec)}/km\n`;
+              message += `${t('weeklyProgress.heartRateLabel')}：${iZone.hrPercent[0]}-${iZone.hrPercent[1]}% HRmax\n\n`;
             }
             
             if (rZone) {
               message += `R - ${rZone.label}\n`;
-              message += `配速：${formatPace(rZone.paceMinSec)} - ${formatPace(rZone.paceMaxSec)}/km\n`;
-              message += `心率：${rZone.hrPercent[0]}% HRmax`;
+              message += `${t('weeklyProgress.paceLabel')}：${formatPace(rZone.paceMinSec)} - ${formatPace(rZone.paceMaxSec)}/km\n`;
+              message += `${t('weeklyProgress.heartRateLabel')}：${rZone.hrPercent[0]}% HRmax`;
             }
             
-            Alert.alert('强度课说明', message, [{ text: '知道了' }]);
+            Alert.alert(t('weeklyProgress.intensityWorkoutInfo'), message, [{ text: t('common.ok') }]);
           }}
         />
         <StatPill
-          label="长距离"
-          value={progress.longRunDone ? '已完成' : '未完成'}
+          label={t('weeklyProgress.longRuns')}
+          value={progress.longRunDone ? t('weeklyProgress.completed') : t('weeklyProgress.notCompleted')}
           positive={progress.longRunDone}
           hasInfo
           onPress={() => {
             Alert.alert(
-              '长距离说明',
-              '全马备赛专用标准\n\n'+
-              '为了安全完赛、不撞墙，赛前长距离满足：\n\n'+
-              '• 最低有效长距离：25km\n'+
-              '• 推荐达标长距离：28～32km\n'+
-              '• 最强备赛长距离：35～36km\n  （不建议超过 36km）',
-              [{ text: '知道了' }]
+              t('weeklyProgress.longRunInfo'),
+              t('weeklyProgress.longRunRequirements'),
+              [{ text: t('common.ok') }]
             );
           }}
         />
@@ -412,7 +411,7 @@ function WeeklyProgressCard({
 
       <View style={styles.progressSummaryCard}>
         <Text style={styles.progressSummaryTitle}>{buildWeeklyProgressSummary(progress)}</Text>
-        <Text style={styles.progressSummaryMeta}>{buildWeeklyCompletionMeta(progress)}</Text>
+        <Text style={styles.progressSummaryMeta}>{buildWeeklyCompletionMeta(progress, t)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -425,15 +424,16 @@ function FeedbackCard({
   record: RunRecord;
   weeklyProgress: WeeklyProgress | null;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.feedbackCard}>
-      <Text style={styles.feedbackTitle}>这次训练反馈</Text>
+      <Text style={styles.feedbackTitle}>{t('weeklyProgress.trainingFeedback')}</Text>
       <Text style={styles.feedbackBody}>{record.conclusion}</Text>
 
       {weeklyProgress ? (
         <>
           <View style={styles.feedbackDivider} />
-          <Text style={styles.feedbackSubTitle}>本周节奏</Text>
+          <Text style={styles.feedbackSubTitle}>{t('weeklyProgress.thisWeekRhythm')}</Text>
           <Text style={styles.feedbackBody}>{buildWeeklyImpact(weeklyProgress)}</Text>
           <Text style={styles.feedbackMomentum}>{buildTrainingMomentum(record, weeklyProgress)}</Text>
         </>
@@ -513,14 +513,14 @@ function ActionButton({
 }
 
 
-function buildWeeklyCompletionMeta(progress: WeeklyProgress): string {
+function buildWeeklyCompletionMeta(progress: WeeklyProgress, t: (key: string) => string): string {
   if (progress.completionRate >= 100) {
-    return '本周公里目标已达成，点按查看是否还需要维持节奏。';
+    return t('weeklyProgress.weeklyTargetAchieved');
   }
   if (progress.remainingKm <= 5) {
-    return '离本周目标很近了，点按查看剩余训练安排。';
+    return t('weeklyProgress.weeklyTargetAlmostDone');
   }
-  return '点按查看本周训练记录与推进情况';
+  return t('weeklyProgress.weeklyProgressDefault');
 }
 
 const styles = StyleSheet.create({

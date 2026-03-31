@@ -1,4 +1,5 @@
 import { Intensity, RunRecord } from '../types';
+import i18n from '../i18n';
 
 export interface WeeklyProgress {
   targetKm: number;
@@ -50,20 +51,20 @@ export function buildWeeklyProgressSummary(progress: WeeklyProgress): string {
   const parts: string[] = [];
 
   if (progress.remainingKm > 0) {
-    parts.push(`本周还差 ${progress.remainingKm.toFixed(1)} km`);
+    parts.push(i18n.t('retention.remaining', { km: progress.remainingKm.toFixed(1) }));
   } else {
-    parts.push('本周公里目标已完成');
+    parts.push(i18n.t('retention.goalComplete'));
   }
 
   if (progress.remainingQuality > 0) {
-    parts.push(`还需完成 ${progress.remainingQuality} 次强度课`);
+    parts.push(i18n.t('retention.qualityRemaining', { count: progress.remainingQuality }));
   }
 
   if (!progress.longRunDone) {
-    parts.push('长距离训练仍未完成');
+    parts.push(i18n.t('retention.longRunRemaining'));
   }
 
-  return parts.join('，') || '本周训练节奏良好';
+  return parts.join('') || i18n.t('retention.rhythmGood');
 }
 
 export function buildWeeklyImpact(
@@ -71,7 +72,8 @@ export function buildWeeklyImpact(
   referenceDate: Date | string = new Date()
 ): string {
   const { title } = getWeeklyContext(referenceDate);
-  return `${title}：${progress.completedKm.toFixed(1)}/${progress.targetKm} km（${progress.completionRate}%）\n强度课：${progress.qualityDone}/${progress.qualityTarget}｜长距离：${progress.longRunDone ? '已完成' : '未完成'}`;
+  const longRunStatus = progress.longRunDone ? i18n.t('weeklyProgress.completed') : i18n.t('weeklyProgress.notCompleted');
+  return `${title}\uff1a${progress.completedKm.toFixed(1)}/${progress.targetKm} km\uff08${progress.completionRate}%\uff09\n${i18n.t('weeklyProgress.intensityWorkouts')}\uff1a${progress.qualityDone}/${progress.qualityTarget}\uff5c${i18n.t('weeklyProgress.longRuns')}\uff1a${longRunStatus}`;
 }
 
 export function buildTrainingMomentum(
@@ -82,26 +84,26 @@ export function buildTrainingMomentum(
   const { weekLabel } = getWeeklyContext(referenceDate);
 
   if (progress.completionRate >= 100) {
-    return `这次训练已帮助你完成${weekLabel}公里目标，后续以维持节奏和恢复为主。`;
+    return i18n.t('retention.goalCompletedMsg', { weekLabel });
   }
 
   if (!progress.longRunDone && record.distance >= 25) {
-    return `这次训练已经补上了${weekLabel}关键长距离。`;
+    return i18n.t('retention.longRunCompletedMsg', { weekLabel });
   }
 
   if (record.intensity >= Intensity.HIGH && progress.qualityDone >= progress.qualityTarget) {
-    return `这次训练已经满足${weekLabel}强度课目标。`;
+    return i18n.t('retention.qualityMetMsg', { weekLabel });
   }
 
   if (record.intensity >= Intensity.HIGH) {
-    return `这次训练正在推进${weekLabel}强度课目标。`;
+    return i18n.t('retention.qualityProgressMsg', { weekLabel });
   }
 
   if (progress.remainingKm > 0) {
-    return `这次训练后，你距离${weekLabel}公里目标还差 ${progress.remainingKm.toFixed(1)} km。`;
+    return i18n.t('retention.remainingMsg', { weekLabel, km: progress.remainingKm.toFixed(1) });
   }
 
-  return `这次训练帮助你继续维持${weekLabel}训练节奏。`;
+  return i18n.t('retention.maintainMsg', { weekLabel });
 }
 
 export function getWeeklyContext(referenceDate: Date | string = new Date()) {
@@ -111,10 +113,10 @@ export function getWeeklyContext(referenceDate: Date | string = new Date()) {
 
   return {
     isCurrentWeek,
-    title: isCurrentWeek ? '本周推进' : '对应周推进',
-    weekLabel: isCurrentWeek ? '本周' : '对应周',
-    feedbackTitle: isCurrentWeek ? '今天这次训练，已经计入你的本周推进' : '这次训练，已经计入对应周推进',
-    feedbackSubtitle: isCurrentWeek ? '这次训练已计入你的本周推进' : '这次训练已计入对应周推进',
+    title: isCurrentWeek ? i18n.t('retention.weeklyProgress') : i18n.t('retention.correspondingWeekProgress'),
+    weekLabel: isCurrentWeek ? i18n.t('retention.thisWeek') : i18n.t('retention.correspondingWeek'),
+    feedbackTitle: isCurrentWeek ? i18n.t('weeklyProgress.trainingFeedback') : i18n.t('weeklyProgress.trainingFeedback'),
+    feedbackSubtitle: isCurrentWeek ? i18n.t('weeklyProgress.trainingFeedback') : i18n.t('weeklyProgress.trainingFeedback'),
   };
 }
 

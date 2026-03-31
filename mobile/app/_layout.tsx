@@ -1,11 +1,15 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../src/constants/theme';
 import { configureReminderChannel, setupReminderNotificationHandler } from '../src/services/ReminderService';
 import { Logger } from '../src/utils/Logger';
+import '../src/i18n';
 
 export default function RootLayout() {
+  const { t } = useTranslation();
+  
   useEffect(() => {
     setupReminderNotificationHandler().catch((error) => {
       Logger.warn('[Reminder] failed to set notification handler', error);
@@ -30,27 +34,27 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="record/[id]"
-          options={{ title: '跑步详情', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.runDetails'), headerBackTitle: t('navigation.back') }}
         />
         <Stack.Screen
           name="race-assistant"
-          options={{ title: '比赛小助手', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.raceAssistant'), headerBackTitle: t('navigation.back') }}
         />
         <Stack.Screen
           name="training-plan"
-          options={{ title: '周期化训练计划', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.trainingPlan'), headerBackTitle: t('navigation.back') }}
         />
         <Stack.Screen
           name="training-feedback"
-          options={{ title: '训练反馈', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.trainingFeedback'), headerBackTitle: t('navigation.back') }}
         />
         <Stack.Screen
           name="reminder-settings"
-          options={{ title: '提醒设置', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.reminderSettings'), headerBackTitle: t('navigation.back') }}
         />
         <Stack.Screen
           name="vdot-progression"
-          options={{ title: '跑力进阶路径', headerBackTitle: '返回' }}
+          options={{ title: t('navigation.vdotProgression'), headerBackTitle: t('navigation.back') }}
         />
       </Stack>
     </>

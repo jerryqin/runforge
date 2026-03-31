@@ -5,6 +5,7 @@
  */
 
 import { BodyStatus, FitnessMetrics, Intensity, RunRecord, UserProfile } from '../types';
+import i18n from '../i18n';
 import { calcVDOT } from './VDOTEngine';
 
 // ===== 常量 =====
@@ -96,40 +97,50 @@ export function calcDynamicThresholds(
 
 const BODY_STATUS_COPY: Record<BodyStatus, { subtitle: string; todayReason: string }> = {
   [BodyStatus.READY]: {
-    subtitle: '恢复状态不错，可以按计划推进今天的训练。',
-    todayReason: '你的本周推进在正常范围内，今天按建议训练即可继续维持节奏。',
+    get subtitle() { return i18n.t('analysis.readySubtitle'); },
+    get todayReason() { return i18n.t('analysis.normalSubtitle'); },
   },
   [BodyStatus.NORMAL]: {
-    subtitle: '身体状态稳定，按今日行动推进即可。',
-    todayReason: '你的本周推进在正常范围内，今天按建议训练即可继续维持节奏。',
+    get subtitle() { return i18n.t('analysis.normalSubtitle'); },
+    get todayReason() { return i18n.t('analysis.normalSubtitle'); },
   },
   [BodyStatus.TIRED]: {
-    subtitle: '近期有疲劳累积，今天以控制强度、稳住节奏为主。',
-    todayReason: '你本周已有训练积累，今天以恢复和稳住节奏为主。',
+    get subtitle() { return i18n.t('analysis.tiredSubtitle'); },
+    get todayReason() { return i18n.t('analysis.tiredSubtitle'); },
   },
   [BodyStatus.REST]: {
-    subtitle: '当前恢复压力偏高，今天优先休息或只做非常轻松的恢复活动。',
-    todayReason: '当前疲劳偏高，今天先恢复，比继续堆跑量更重要。',
+    get subtitle() { return i18n.t('analysis.restSubtitle'); },
+    get todayReason() { return i18n.t('analysis.currentRecoveryHigh'); },
   },
 };
 
 const RECOVERY_LOAD_DETAIL_COPY = {
-  peak: {
-    detail: '巅峰窗口',
-    tip: '恢复非常充分，适合比赛或一次高质量训练。',
+  get peak() {
+    return {
+      detail: i18n.t('analysis.peakDetail'),
+      tip: i18n.t('analysis.peakTip'),
+    };
   },
-  ready: {
-    detail: '恢复良好',
+  get ready() {
+    return {
+      detail: i18n.t('analysis.readyDetail'),
+    };
   },
-  normal: {
-    detail: '负荷可控',
-    tip: '负荷仍在可控区间，适合保持训练节奏。',
+  get normal() {
+    return {
+      detail: i18n.t('analysis.normalDetail'),
+      tip: i18n.t('analysis.normalTip'),
+    };
   },
-  tired: {
-    detail: '疲劳积累',
+  get tired() {
+    return {
+      detail: i18n.t('analysis.tiredDetail'),
+    };
   },
-  rest: {
-    detail: '恢复不足',
+  get rest() {
+    return {
+      detail: i18n.t('analysis.restDetail'),
+    };
   },
 } as const;
 
@@ -223,10 +234,10 @@ export function calcFitnessMetrics(
 // ===== 一句话结论 =====
 export function buildConclusion(intensity: Intensity): string {
   const map: Record<Intensity, string> = {
-    [Intensity.EASY]: '本次为轻松跑，恢复良好。',
-    [Intensity.NORMAL]: '本次强度适中，训练有效。',
-    [Intensity.HIGH]: '本次强度偏高，注意恢复。',
-    [Intensity.OVER]: '本次强度过大，存在疲劳风险。',
+    [Intensity.EASY]: i18n.t('analysis.conclusionEasy'),
+    [Intensity.NORMAL]: i18n.t('analysis.conclusionNormal'),
+    [Intensity.HIGH]: i18n.t('analysis.conclusionHigh'),
+    [Intensity.OVER]: i18n.t('analysis.conclusionOver'),
   };
   return map[intensity];
 }
@@ -239,14 +250,14 @@ export function buildSuggest(
 ): string {
   // 强制规则：长距离后优先恢复
   if (distance >= BODY_STATUS_THRESHOLDS.longDistanceKm) {
-    return '长距离后优先恢复，建议休息或慢跑。';
+    return i18n.t('analysis.suggestLongRun');
   }
 
   const base: Record<Intensity, string> = {
-    [Intensity.EASY]: '可正常训练。',
-    [Intensity.NORMAL]: '建议轻松跑 5–8km。',
-    [Intensity.HIGH]: '建议休息 1 天。',
-    [Intensity.OVER]: '建议休息 1–2 天。',
+    [Intensity.EASY]: i18n.t('analysis.suggestEasy'),
+    [Intensity.NORMAL]: i18n.t('analysis.suggestNormal'),
+    [Intensity.HIGH]: i18n.t('analysis.suggestHigh'),
+    [Intensity.OVER]: i18n.t('analysis.suggestOver'),
   };
   return base[intensity];
 }
@@ -259,14 +270,14 @@ export function buildRisk(
   const risks: string[] = [];
 
   if (intensity >= Intensity.HIGH) {
-    risks.push('心率偏高，注意减量。');
+    risks.push(i18n.t('analysis.riskHighHR'));
   }
 
   // 近2天连续高强度
   const recent2 = recentRecords.slice(0, 2);
   const consecutive = recent2.every(r => r.intensity >= Intensity.HIGH);
   if (consecutive && recent2.length >= 2) {
-    risks.push('连续高强度，受伤风险上升。');
+    risks.push(i18n.t('analysis.riskConsecutive'));
   }
 
   return risks.join('');

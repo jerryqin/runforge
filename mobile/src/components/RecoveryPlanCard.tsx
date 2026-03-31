@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { RecoveryPlan, RecoveryWeekPlan } from '../engine/AnalysisEngine';
 
@@ -19,17 +20,18 @@ interface Props {
 
 export function RecoveryPlanCard({ plan }: Props) {
   const [expandedWeek, setExpandedWeek] = useState<number>(1);
+  const { t } = useTranslation();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.icon}>🔄</Text>
         <View style={styles.headerText}>
-          <Text style={styles.title}>恢复计划</Text>
+          <Text style={styles.title}>{t('analysis.recoveryPlanTitle')}</Text>
           <Text style={styles.subtitle}>
             {plan.weeks.length === 1
-              ? '疲劳指数过高，建议按以下计划休整 1 周'
-              : '疲劳严重积累，建议按以下计划休整 2 周'}
+              ? t('analysis.recoveryPlanSubtitle1')
+              : t('analysis.recoveryPlanSubtitle2')}
           </Text>
         </View>
       </View>
@@ -53,7 +55,7 @@ export function RecoveryPlanCard({ plan }: Props) {
                   expandedWeek === week.weekNumber && styles.weekTabTextActive,
                 ]}
               >
-                第 {week.weekNumber} 周
+                {t('analysis.recoveryWeekTab', { number: week.weekNumber })}
               </Text>
             </TouchableOpacity>
           ))}
@@ -71,12 +73,13 @@ export function RecoveryPlanCard({ plan }: Props) {
 }
 
 function WeekPlanSection({ week }: { week: RecoveryWeekPlan }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.weekSection}>
       {/* 周标题 */}
       <View style={styles.weekHeader}>
         <Text style={styles.weekTitle}>
-          第 {week.weekNumber} 周：{week.weekTitle}
+          {t('analysis.recoveryWeekTitle', { number: week.weekNumber, title: week.weekTitle })}
         </Text>
         <View style={styles.weekBadge}>
           <Text style={styles.weekBadgeText}>{week.weekSubtitle}</Text>
@@ -85,9 +88,9 @@ function WeekPlanSection({ week }: { week: RecoveryWeekPlan }) {
 
       {/* 表头 */}
       <View style={[styles.tableRow, styles.tableHeader]}>
-        <Text style={[styles.tableCell, styles.cellDay, styles.tableHeaderText]}>天数</Text>
-        <Text style={[styles.tableCell, styles.cellTasks, styles.tableHeaderText]}>✅ 打卡任务</Text>
-        <Text style={[styles.tableCell, styles.cellObjective, styles.tableHeaderText]}>🎯 核心目的</Text>
+        <Text style={[styles.tableCell, styles.cellDay, styles.tableHeaderText]}>{t('analysis.recoveryTableDay')}</Text>
+        <Text style={[styles.tableCell, styles.cellTasks, styles.tableHeaderText]}>{t('analysis.recoveryTableTasks')}</Text>
+        <Text style={[styles.tableCell, styles.cellObjective, styles.tableHeaderText]}>{t('analysis.recoveryTableObjective')}</Text>
       </View>
 
       {/* 每天的行 */}

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   BorderRadius,
   Colors,
@@ -22,6 +23,7 @@ import { racePlanRepo } from '../src/db/repositories/RacePlanRepository';
 import { generateRacePlan, RacePlanOutput } from '../src/engine/RaceEngine';
 
 export default function RaceAssistantScreen() {
+  const { t } = useTranslation();
   const [raceDate, setRaceDate] = useState('');
   const [targetTime, setTargetTime] = useState(''); // HH:MM:SS
   const [plan, setPlan] = useState<RacePlanOutput | null>(null);
@@ -48,11 +50,11 @@ export default function RaceAssistantScreen() {
     else if (parts.length === 2) sec = parts[0] * 3600 + parts[1] * 60;
 
     if (!raceDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      Alert.alert('日期格式错误', '请输入 YYYY-MM-DD 格式');
+      Alert.alert(t('input.dateFormatError'), t('input.dateFormatPrompt'));
       return;
     }
     if (sec < 7200 || sec > 28800) {
-      Alert.alert('时间范围错误', '目标时间应在 2–8 小时之间');
+      Alert.alert(t('tools.timeRangeError'), t('tools.timeRangeMessage'));
       return;
     }
 
@@ -91,7 +93,7 @@ export default function RaceAssistantScreen() {
           {/* 输入区 */}
           <View style={styles.inputArea}>
             <View style={styles.field}>
-              <Text style={styles.label}>比赛日期</Text>
+              <Text style={styles.label}>{t('tools.raceDate')}</Text>
               <TextInput
                 style={styles.input}
                 value={raceDate}
@@ -102,12 +104,12 @@ export default function RaceAssistantScreen() {
               />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>目标完赛时间</Text>
+              <Text style={styles.label}>{t('tools.targetFinishTime')}</Text>
               <TextInput
                 style={styles.input}
                 value={targetTime}
                 onChangeText={setTargetTime}
-                placeholder="如：04:30:00"
+                placeholder="04:30:00"
                 placeholderTextColor={Colors.gray4}
                 keyboardType="numbers-and-punctuation"
               />
@@ -119,7 +121,7 @@ export default function RaceAssistantScreen() {
               disabled={saving}
             >
               <Text style={styles.generateBtnText}>
-                {saving ? '保存中...' : plan ? '更新方案' : '生成备赛方案'}
+                {saving ? t('tools.saving') : plan ? t('tools.updatePlan') : t('tools.generateRacePlan')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -129,17 +131,17 @@ export default function RaceAssistantScreen() {
             <View style={styles.planArea}>
               {/* 概览 */}
               <View style={styles.overview}>
-                <OverviewItem label="目标时间" value={plan.targetTimeLabel} />
-                <OverviewItem label="目标配速" value={plan.targetPaceLabel + '/km'} />
+                <OverviewItem label={t('tools.targetTime')} value={plan.targetTimeLabel} />
+                <OverviewItem label={t('tools.targetPaceLbl')} value={plan.targetPaceLabel + '/km'} />
                 <OverviewItem label="VDOT" value={String(plan.vdot)} />
                 <OverviewItem
-                  label="距比赛"
-                  value={plan.daysUntilRace > 0 ? `${plan.daysUntilRace} 天` : '已过'}
+                  label={t('tools.daysToRace')}
+                  value={plan.daysUntilRace > 0 ? t('tools.daysUntilRace', { count: plan.daysUntilRace }) : t('tools.racePassed')}
                 />
               </View>
 
               {/* 分段策略 */}
-              <PlanSection title="分段配速策略">
+              <PlanSection title={t('tools.pacingStrategy')}>
                 {plan.segments.map((seg) => (
                   <View key={seg.segment} style={styles.segRow}>
                     <View style={styles.segLeft}>
@@ -152,7 +154,7 @@ export default function RaceAssistantScreen() {
               </PlanSection>
 
               {/* 补给策略 */}
-              <PlanSection title="补给策略">
+              <PlanSection title={t('tools.nutritionStrategy')}>
                 {plan.gels.map((gel) => (
                   <View key={gel.km} style={styles.gelRow}>
                     <View style={styles.gelKmBadge}>
@@ -161,11 +163,11 @@ export default function RaceAssistantScreen() {
                     <Text style={styles.gelNote}>{gel.note}</Text>
                   </View>
                 ))}
-                <Text style={styles.gelExtra}>每个补水站少量多次补水</Text>
+                <Text style={styles.gelExtra}>{t('tools.hydrationTip')}</Text>
               </PlanSection>
 
               {/* 赛前计划 */}
-              <PlanSection title="赛前 10 天计划">
+              <PlanSection title={t('tools.preRaceDaysPlan')}>
                 {plan.preRacePlan.map((item) => (
                   <View key={item.days} style={styles.preRow}>
                     <Text style={styles.preDays}>{item.days}</Text>

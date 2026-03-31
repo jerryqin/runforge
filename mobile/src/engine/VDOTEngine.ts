@@ -5,6 +5,7 @@
  * 纯函数实现，无副作用
  */
 
+import i18n from '../i18n';
 import { RECOVERY_LOAD_THRESHOLDS } from './AnalysisEngine';
 
 // ===== 基础公式 =====
@@ -127,40 +128,40 @@ export function calcTrainingZones(vdot: number): PaceZone[] {
   return [
     {
       zone: 'E',
-      label: '轻松跑',
-      description: '有氧基础，可轻松对话',
+      label: i18n.t('trainingPlan.paceZoneEasyLabel'),
+      description: i18n.t('trainingPlan.paceZoneEasyDesc'),
       paceMinSec: paceAtVO2Percent(vdot, 0.74),   // 快端 74%
       paceMaxSec: paceAtVO2Percent(vdot, 0.59),   // 慢端 59%
       hrPercent: [65, 79],
     },
     {
       zone: 'M',
-      label: '马拉松配速',
-      description: '比赛配速，稳定持久',
+      label: i18n.t('trainingPlan.paceZoneMarathonLabel'),
+      description: i18n.t('trainingPlan.paceZoneMarathonDesc'),
       paceMinSec: paceAtVO2Percent(vdot, 0.84),
       paceMaxSec: paceAtVO2Percent(vdot, 0.75),
       hrPercent: [80, 85],
     },
     {
       zone: 'T',
-      label: '乳酸阈值',
-      description: '节奏跑，刚好能坚持的难度',
+      label: i18n.t('trainingPlan.paceZoneThresholdLabel'),
+      description: i18n.t('trainingPlan.paceZoneThresholdDesc'),
       paceMinSec: paceAtVO2Percent(vdot, 0.88),
       paceMaxSec: paceAtVO2Percent(vdot, 0.83),
       hrPercent: [85, 90],
     },
     {
       zone: 'I',
-      label: '间歇跑',
-      description: '提升最大摄氧量，3-5分钟组',
+      label: i18n.t('trainingPlan.paceZoneIntervalLabel'),
+      description: i18n.t('trainingPlan.paceZoneIntervalDesc'),
       paceMinSec: paceAtVO2Percent(vdot, 1.0),
       paceMaxSec: paceAtVO2Percent(vdot, 0.95),
       hrPercent: [95, 100],
     },
     {
       zone: 'R',
-      label: '重复跑',
-      description: '改善跑步经济性，200-400m短冲',
+      label: i18n.t('trainingPlan.paceZoneRepLabel'),
+      description: i18n.t('trainingPlan.paceZoneRepDesc'),
       paceMinSec: paceAtVO2Percent(vdot, 1.10),
       paceMaxSec: paceAtVO2Percent(vdot, 1.05),
       hrPercent: [100, 100],
@@ -179,14 +180,26 @@ export enum TrainingType {
   RECOVERY = 'RECOVERY',
 }
 
+/** @deprecated Use getTrainingTypeLabel() for lazy i18n evaluation */
 export const TrainingTypeLabel: Record<TrainingType, string> = {
-  [TrainingType.REST]: '休息',
-  [TrainingType.EASY]: '轻松跑',
-  [TrainingType.LONG_RUN]: '长距离',
-  [TrainingType.TEMPO]: '节奏跑',
-  [TrainingType.INTERVAL]: '间歇跑',
-  [TrainingType.RECOVERY]: '恢复跑',
+  [TrainingType.REST]: TrainingType.REST,
+  [TrainingType.EASY]: TrainingType.EASY,
+  [TrainingType.LONG_RUN]: TrainingType.LONG_RUN,
+  [TrainingType.TEMPO]: TrainingType.TEMPO,
+  [TrainingType.INTERVAL]: TrainingType.INTERVAL,
+  [TrainingType.RECOVERY]: TrainingType.RECOVERY,
 };
+
+export function getTrainingTypeLabel(type: TrainingType): string {
+  switch (type) {
+    case TrainingType.REST: return i18n.t('trainingPlan.typeRest');
+    case TrainingType.EASY: return i18n.t('trainingPlan.typeEasy');
+    case TrainingType.LONG_RUN: return i18n.t('trainingPlan.typeLongRun');
+    case TrainingType.TEMPO: return i18n.t('trainingPlan.typeTempo');
+    case TrainingType.INTERVAL: return i18n.t('trainingPlan.typeInterval');
+    case TrainingType.RECOVERY: return i18n.t('trainingPlan.typeRecovery');
+  }
+}
 
 export interface TrainingPrescription {
   type: TrainingType;
@@ -240,18 +253,18 @@ export function generatePrescription(params: {
   if (consecutiveHighDays >= 2) {
     return {
       type: TrainingType.REST,
-      label: '休息日',
+      label: i18n.t('analysis.restDayLabel'),
       zone: '-',
-      description: '连续高强度训练后必须休息，让身体充分恢复。',
+      description: i18n.t('analysis.restAfterHighDays'),
     };
   }
 
   if (tsb < RECOVERY_LOAD_THRESHOLDS.restTsb) {
     return {
       type: TrainingType.REST,
-      label: '休息日',
+      label: i18n.t('analysis.restDayLabel'),
       zone: '-',
-      description: `身体疲劳指数较高(TSB < ${RECOVERY_LOAD_THRESHOLDS.restTsb})，建议完全休息或极轻松散步。`,
+      description: i18n.t('analysis.restHighFatigue', { threshold: RECOVERY_LOAD_THRESHOLDS.restTsb }),
     };
   }
 
@@ -259,12 +272,12 @@ export function generatePrescription(params: {
   if (tsb < RECOVERY_LOAD_THRESHOLDS.recoveryRunTsb) {
     return {
       type: TrainingType.RECOVERY,
-      label: '恢复跑',
+      label: i18n.t('analysis.recoveryRunLabel'),
       distance: 4,
       zone: 'E',
       paceRange: formatPaceRange(eZone),
-      description: '身体仍在恢复中，以极低强度慢跑促进血液循环。',
-      warmup: '步行 5 分钟',
+      description: i18n.t('analysis.bodyRecovering'),
+      warmup: i18n.t('analysis.recoveryRunWarmup'),
     };
   }
 
@@ -275,13 +288,13 @@ export function generatePrescription(params: {
     const longDist = Math.max(12, Math.round(weeklyTargetKm * 0.3));
     return {
       type: TrainingType.LONG_RUN,
-      label: '长距离跑',
+      label: i18n.t('analysis.longRunLabel'),
       distance: Math.min(longDist, 32),
       zone: 'E',
       paceRange: formatPaceRange(eZone),
-      description: '本周长距离训练，保持轻松配速，建立有氧耐力。',
-      warmup: '慢跑 10 分钟热身',
-      cooldown: '慢跑 5 分钟 + 拉伸',
+      description: i18n.t('analysis.longRunDesc'),
+      warmup: i18n.t('analysis.longRunWarmup'),
+      cooldown: i18n.t('analysis.longRunCooldown'),
     };
   }
 
@@ -291,25 +304,25 @@ export function generatePrescription(params: {
       // 状态好 → 间歇
       return {
         type: TrainingType.INTERVAL,
-        label: '间歇训练',
+        label: i18n.t('analysis.intervalLabel'),
         distance: 8,
         zone: 'I',
         paceRange: formatPaceRange(iZone),
-        description: '状态良好，进行间歇训练提升最大摄氧量。\n建议: 1km×5 组，组间慢跑 400m 恢复。',
-        warmup: '慢跑 15 分钟 + 动态拉伸',
-        cooldown: '慢跑 10 分钟 + 静态拉伸',
+        description: i18n.t('analysis.intervalDesc'),
+        warmup: i18n.t('analysis.intervalWarmup'),
+        cooldown: i18n.t('analysis.intervalCooldown'),
       };
     } else {
       // 状态一般 → 节奏跑
       return {
         type: TrainingType.TEMPO,
-        label: '节奏跑',
+        label: i18n.t('analysis.tempoLabel'),
         distance: 8,
         zone: 'T',
         paceRange: formatPaceRange(tZone),
-        description: '进行乳酸阈值训练，提升持续配速能力。\n建议: 热身后连续跑 20-30 分钟。',
-        warmup: '慢跑 15 分钟',
-        cooldown: '慢跑 10 分钟',
+        description: i18n.t('analysis.tempoDesc'),
+        warmup: i18n.t('analysis.tempoWarmup'),
+        cooldown: i18n.t('analysis.tempoCooldown'),
       };
     }
   }
@@ -318,13 +331,13 @@ export function generatePrescription(params: {
   if (weekday === 4) {
     return {
       type: TrainingType.TEMPO,
-      label: '马拉松配速跑',
+      label: i18n.t('analysis.marathonTempoLabel'),
       distance: 10,
       zone: 'M',
       paceRange: formatPaceRange(mZone),
-      description: '按马拉松比赛配速进行专项训练。\n建议: 热身后以 M 配速跑 30-40 分钟。',
-      warmup: '慢跑 10 分钟',
-      cooldown: '慢跑 10 分钟',
+      description: i18n.t('analysis.marathonTempoDesc'),
+      warmup: i18n.t('analysis.marathonWarmup'),
+      cooldown: i18n.t('analysis.marathonCooldown'),
     };
   }
 
@@ -333,11 +346,11 @@ export function generatePrescription(params: {
     // 周一/周五: 轻松跑
     return {
       type: TrainingType.EASY,
-      label: '轻松跑',
+      label: i18n.t('analysis.easyRunLabel'),
       distance: Math.round(weeklyTargetKm * 0.12),
       zone: 'E',
       paceRange: formatPaceRange(eZone),
-      description: '轻松有氧跑，保持跑量但不增加疲劳。可轻松对话。',
+      description: i18n.t('analysis.easyRunDesc'),
     };
   }
 
@@ -345,18 +358,18 @@ export function generatePrescription(params: {
   if (daysSinceLastRun <= 0) {
     return {
       type: TrainingType.REST,
-      label: '休息日',
+      label: i18n.t('analysis.restDayLabel'),
       zone: '-',
-      description: '主动恢复日，完全休息或散步、瑜伽等交叉训练。',
+      description: i18n.t('analysis.activeRecoveryDesc'),
     };
   }
 
   return {
     type: TrainingType.EASY,
-    label: '轻松跑',
+    label: i18n.t('analysis.easyRunLabel'),
     distance: 6,
     zone: 'E',
     paceRange: formatPaceRange(eZone),
-    description: '轻松有氧跑，以舒适的节奏享受跑步。',
+    description: i18n.t('analysis.easyRunDesc2'),
   };
 }

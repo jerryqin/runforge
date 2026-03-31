@@ -6,6 +6,7 @@
  */
 
 import { formatPace } from './AnalysisEngine';
+import i18n from '../i18n';
 import { calcTrainingZones, PaceZone, TrainingType, TrainingTypeLabel } from './VDOTEngine';
 
 // ===== 类型定义 =====
@@ -18,18 +19,36 @@ export enum PlanPhase {
 }
 
 export const PlanPhaseLabel: Record<PlanPhase, string> = {
-  [PlanPhase.BASE]: '基础期',
-  [PlanPhase.BUILD]: '提升期',
-  [PlanPhase.PEAK]: '巅峰期',
-  [PlanPhase.TAPER]: '减量期',
+  [PlanPhase.BASE]: 'BASE',
+  [PlanPhase.BUILD]: 'BUILD',
+  [PlanPhase.PEAK]: 'PEAK',
+  [PlanPhase.TAPER]: 'TAPER',
 };
 
+export function getPlanPhaseLabel(phase: PlanPhase): string {
+  switch (phase) {
+    case PlanPhase.BASE: return i18n.t('trainingPlan.phaseBase');
+    case PlanPhase.BUILD: return i18n.t('trainingPlan.phaseBuild');
+    case PlanPhase.PEAK: return i18n.t('trainingPlan.phasePeak');
+    case PlanPhase.TAPER: return i18n.t('trainingPlan.phaseTaper');
+  }
+}
+
 export const PlanPhaseDescription: Record<PlanPhase, string> = {
-  [PlanPhase.BASE]: '建立有氧基础，以轻松跑为主，逐步增加跑量',
-  [PlanPhase.BUILD]: '引入强度课（节奏跑/间歇），提升乳酸阈值和VO2max',
-  [PlanPhase.PEAK]: '高强度训练比例增加，模拟比赛节奏',
-  [PlanPhase.TAPER]: '大幅减量保持强度，让身体达到最佳竞技状态',
+  [PlanPhase.BASE]: 'BASE_DESC',
+  [PlanPhase.BUILD]: 'BUILD_DESC',
+  [PlanPhase.PEAK]: 'PEAK_DESC',
+  [PlanPhase.TAPER]: 'TAPER_DESC',
 };
+
+export function getPlanPhaseDescription(phase: PlanPhase): string {
+  switch (phase) {
+    case PlanPhase.BASE: return i18n.t('trainingPlan.phaseBaseDesc');
+    case PlanPhase.BUILD: return i18n.t('trainingPlan.phaseBuildDesc');
+    case PlanPhase.PEAK: return i18n.t('trainingPlan.phasePeakDesc');
+    case PlanPhase.TAPER: return i18n.t('trainingPlan.phaseTaperDesc');
+  }
+}
 
 export interface DayPlan {
   dayOfWeek: number;       // 1=周一 ... 7=周日
@@ -76,7 +95,12 @@ export interface PlanInput {
 
 // ===== 工具函数 =====
 
-const DAY_LABELS = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const DAY_LABELS = ['', 1, 2, 3, 4, 5, 6, 7] as const;
+
+function getDayLabel(dayOfWeek: number): string {
+  const keys = ['', 'dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
+  return i18n.t(`trainingPlan.${keys[dayOfWeek]}`);
+}
 
 function weeksUntil(dateStr: string): number {
   const today = new Date();
@@ -145,7 +169,7 @@ function generateWeekDays(
       days.push(day(3, TrainingType.REST, 0, '-', zones));
       days.push(day(4, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones));
       days.push(day(5, TrainingType.EASY, round(weeklyKm * 0.12), 'E', zones));
-      days.push(day(6, TrainingType.LONG_RUN, round(weeklyKm * 0.30), 'E', zones, '长距离以轻松配速完成'));
+      days.push(day(6, TrainingType.LONG_RUN, round(weeklyKm * 0.30), 'E', zones, i18n.t('trainingPlan.longRunNote')));
       days.push(day(7, TrainingType.REST, 0, '-', zones));
       break;
 
@@ -153,12 +177,12 @@ function generateWeekDays(
       // 提升期: Easy + 1次Tempo + 1次长距离
       days.push(day(1, TrainingType.EASY, round(weeklyKm * 0.12), 'E', zones));
       days.push(day(2, TrainingType.TEMPO, round(weeklyKm * 0.15), 'T', zones,
-        '热身2km → T配速跑20-30分钟 → 放松2km'));
+        i18n.t('trainingPlan.tempoNote')));
       days.push(day(3, TrainingType.REST, 0, '-', zones));
       days.push(day(4, TrainingType.EASY, round(weeklyKm * 0.13), 'E', zones));
       days.push(day(5, TrainingType.EASY, round(weeklyKm * 0.12), 'E', zones));
       days.push(day(6, TrainingType.LONG_RUN, round(weeklyKm * 0.28), 'E', zones,
-        '长距离跑，最后3km可尝试M配速'));
+        i18n.t('trainingPlan.longRunMNote')));
       days.push(day(7, TrainingType.REST, 0, '-', zones));
       break;
 
@@ -166,13 +190,13 @@ function generateWeekDays(
       // 巅峰期: Tempo + Interval + 长距离
       days.push(day(1, TrainingType.EASY, round(weeklyKm * 0.10), 'E', zones));
       days.push(day(2, TrainingType.INTERVAL, round(weeklyKm * 0.13), 'I', zones,
-        '热身2km → 1km×5组(I配速) → 组间400m慢跑 → 放松2km'));
+        i18n.t('trainingPlan.intervalNote')));
       days.push(day(3, TrainingType.EASY, round(weeklyKm * 0.10), 'E', zones));
       days.push(day(4, TrainingType.TEMPO, round(weeklyKm * 0.15), 'T', zones,
-        '热身2km → T配速跑30分钟 → 放松2km'));
+        i18n.t('trainingPlan.peakTempoNote')));
       days.push(day(5, TrainingType.REST, 0, '-', zones));
       days.push(day(6, TrainingType.LONG_RUN, round(weeklyKm * 0.28), 'E', zones,
-        '长距离含中段5km M配速'));
+        i18n.t('trainingPlan.peakLongRunNote')));
       days.push(day(7, TrainingType.REST, 0, '-', zones));
       break;
 
@@ -180,16 +204,27 @@ function generateWeekDays(
       // 减量期: 大幅减量，保持少量强度课
       days.push(day(1, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones));
       days.push(day(2, TrainingType.TEMPO, round(weeklyKm * 0.20), 'T', zones,
-        '短节奏跑，保持腿部速度感'));
+        i18n.t('trainingPlan.taperTempoNote')));
       days.push(day(3, TrainingType.REST, 0, '-', zones));
       days.push(day(4, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones));
       days.push(day(5, TrainingType.REST, 0, '-', zones));
-      days.push(day(6, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones, '赛前轻松跑'));
+      days.push(day(6, TrainingType.EASY, round(weeklyKm * 0.15), 'E', zones, i18n.t('trainingPlan.taperEasyNote')));
       days.push(day(7, TrainingType.REST, 0, '-', zones));
       break;
   }
 
   return days;
+}
+
+function getTrainingTypeLabelStr(type: TrainingType): string {
+  switch (type) {
+    case TrainingType.REST: return i18n.t('trainingPlan.typeRest');
+    case TrainingType.EASY: return i18n.t('trainingPlan.typeEasy');
+    case TrainingType.LONG_RUN: return i18n.t('trainingPlan.typeLongRun');
+    case TrainingType.TEMPO: return i18n.t('trainingPlan.typeTempo');
+    case TrainingType.INTERVAL: return i18n.t('trainingPlan.typeInterval');
+    case TrainingType.RECOVERY: return i18n.t('trainingPlan.typeRecovery');
+  }
 }
 
 function day(
@@ -203,9 +238,9 @@ function day(
   const distLabel = distance > 0 ? ` ${distance}km` : '';
   return {
     dayOfWeek,
-    dayLabel: DAY_LABELS[dayOfWeek],
+    dayLabel: getDayLabel(dayOfWeek),
     type,
-    label: `${TrainingTypeLabel[type]}${distLabel}`,
+    label: `${getTrainingTypeLabelStr(type)}${distLabel}`,
     distance: distance > 0 ? distance : undefined,
     zone,
     paceRange: zone !== '-' ? formatZonePace(zones, zone) : undefined,
@@ -239,10 +274,10 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan | null {
   const phaseInfo = phaseAlloc.map(p => {
     const info = {
       phase: p.phase,
-      label: PlanPhaseLabel[p.phase],
+      label: getPlanPhaseLabel(p.phase),
       startWeek: cumWeek,
       endWeek: cumWeek + p.weeks - 1,
-      description: PlanPhaseDescription[p.phase],
+      description: getPlanPhaseDescription(p.phase),
     };
     cumWeek += p.weeks;
     return info;
@@ -286,7 +321,7 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan | null {
       weeks.push({
         weekNumber: globalWeek,
         phase: allocation.phase,
-        phaseLabel: PlanPhaseLabel[allocation.phase],
+        phaseLabel: getPlanPhaseLabel(allocation.phase),
         weeklyKm: actualKm,
         days,
         focus: getFocusText(allocation.phase, wi, allocation.weeks),
@@ -310,16 +345,16 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan | null {
 function getFocusText(phase: PlanPhase, weekInPhase: number, totalPhaseWeeks: number): string {
   switch (phase) {
     case PlanPhase.BASE:
-      if (weekInPhase < 2) return '适应跑量，建立习惯';
-      if (weekInPhase < totalPhaseWeeks - 1) return '稳步增量，夯实有氧基础';
-      return '基础期收尾，准备进入质量训练';
+      if (weekInPhase < 2) return i18n.t('trainingPlan.focusBase1');
+      if (weekInPhase < totalPhaseWeeks - 1) return i18n.t('trainingPlan.focusBase2');
+      return i18n.t('trainingPlan.focusBase3');
     case PlanPhase.BUILD:
-      if ((weekInPhase + 1) % 3 === 0) return '恢复周：降低跑量，消化疲劳';
-      return '质量训练重点周：节奏跑/间歇';
+      if ((weekInPhase + 1) % 3 === 0) return i18n.t('trainingPlan.focusBuildRecovery');
+      return i18n.t('trainingPlan.focusBuild');
     case PlanPhase.PEAK:
-      return '高强度维持，模拟比赛';
+      return i18n.t('trainingPlan.focusPeak');
     case PlanPhase.TAPER:
-      if (weekInPhase === totalPhaseWeeks - 1) return '赛前最后一周，完全恢复，准备比赛！';
-      return '逐步减量，保持手感';
+      if (weekInPhase === totalPhaseWeeks - 1) return i18n.t('trainingPlan.focusTaperFinal');
+      return i18n.t('trainingPlan.focusTaper');
   }
 }

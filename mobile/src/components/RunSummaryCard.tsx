@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { RunRecord, IntensityLabel } from '../types';
+import { useTranslation } from 'react-i18next';
+import { RunRecord, getIntensityLabel } from '../types';
 import { IntensityColors, BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { formatPace } from '../engine/AnalysisEngine';
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function RunSummaryCard({ record, onPress, compact = false }: Props) {
+  const { t } = useTranslation();
   const intensityColor = IntensityColors[record.intensity];
 
   return (
@@ -24,16 +26,16 @@ export function RunSummaryCard({ record, onPress, compact = false }: Props) {
         <Text style={styles.date}>{record.run_date}</Text>
         <View style={[styles.badge, { backgroundColor: intensityColor + '20' }]}>
           <Text style={[styles.badgeText, { color: intensityColor }]}>
-            {IntensityLabel[record.intensity]}
+            {getIntensityLabel(record.intensity)}
           </Text>
         </View>
       </View>
 
       {/* 核心数据行 */}
       <View style={styles.metrics}>
-        <MetricItem label="距离" value={`${record.distance.toFixed(2)}km`} large />
-        <MetricItem label="配速" value={formatPace(record.avg_pace)} />
-        <MetricItem label="心率" value={`${record.avg_hr}bpm`} />
+        <MetricItem label={t('history.distance')} value={`${record.distance.toFixed(2)}km`} large />
+        <MetricItem label={t('history.pace')} value={formatPace(record.avg_pace)} />
+        <MetricItem label={t('history.heartRate')} value={`${record.avg_hr}bpm`} />
       </View>
 
       {/* 一句话结论 */}

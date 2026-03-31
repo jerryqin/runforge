@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import i18n from '../i18n';
 import { Logger } from '../utils/Logger';
 
 const STORAGE_KEY = '@runforge/daily-training-reminder';
@@ -67,7 +68,7 @@ export async function configureReminderChannel() {
   if (Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: '每日训练提醒',
+    name: i18n.t('reminder.channelName'),
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default',
   });
@@ -150,8 +151,8 @@ export async function enableDailyTrainingReminder(hour: number, minute: number) 
 
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: '该看今日行动了',
-      body: '打开 RunForge，看看今天该怎么练。',
+      title: i18n.t('reminder.notificationTitle'),
+      body: i18n.t('reminder.notificationBody'),
       sound: true,
       ...(Platform.OS === 'android' ? { androidChannelId: ANDROID_CHANNEL_ID } : {}),
     },

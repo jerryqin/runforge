@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { predictAllRaces, RaceDistanceName } from '../engine/VDOTEngine';
 
@@ -13,9 +14,16 @@ interface Props {
 }
 
 export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
+  const { t } = useTranslation();
   if (currentVDOT <= 0) return null;
 
   const predictions = predictAllRaces(currentVDOT);
+  const raceNameMap: Record<string, string> = {
+    '5K': '5K',
+    '10K': '10K',
+    '半马': t('analysis.raceHalfMarathon'),
+    '全马': t('analysis.raceMarathon'),
+  };
 
   // 计算趋势（最近5次 vs 前5次）
   const recent5 = vdotHistory.slice(0, 5);
@@ -29,7 +37,7 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
     const diff = recentAvg - prevAvg;
     if (diff > 0.5) { trendText = `↑ ${diff.toFixed(1)}`; trendColor = Colors.statusGreen; }
     else if (diff < -0.5) { trendText = `↓ ${Math.abs(diff).toFixed(1)}`; trendColor = Colors.statusRed; }
-    else { trendText = '→ 稳定'; trendColor = Colors.gray2; }
+    else { trendText = t('analysis.trendStable'); trendColor = Colors.gray2; }
   }
 
   // 简易趋势柱状图（最近10次）
@@ -52,7 +60,7 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
       {/* 当前 VDOT */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.vdotLabel}>当前跑力</Text>
+          <Text style={styles.vdotLabel}>{t('analysis.currentVdot')}</Text>
           <View style={styles.vdotRow}>
             <Text style={styles.vdotValue}>{currentVDOT.toFixed(1)}</Text>
             {trendText ? (
@@ -60,7 +68,7 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
             ) : null}
           </View>
         </View>
-        <Text style={styles.pathHint}>查看进阶路径</Text>
+        <Text style={styles.pathHint}>{t('analysis.viewProgressionPath')}</Text>
       </View>
 
       {/* 趋势图 */}
@@ -90,11 +98,11 @@ export function VDOTTrendCard({ currentVDOT, vdotHistory, onPress }: Props) {
 
       {/* 赛事成绩预测 */}
       <View style={styles.predictions}>
-        <Text style={styles.predTitle}>赛事成绩预测</Text>
+        <Text style={styles.predTitle}>{t('analysis.racePerformancePrediction')}</Text>
         <View style={styles.predGrid}>
           {(Object.entries(predictions) as [RaceDistanceName, number][]).map(([name, sec]) => (
             <View key={name} style={styles.predItem}>
-              <Text style={styles.predName}>{name}</Text>
+              <Text style={styles.predName}>{raceNameMap[name] ?? name}</Text>
               <Text
                 style={styles.predTime}
                 numberOfLines={1}

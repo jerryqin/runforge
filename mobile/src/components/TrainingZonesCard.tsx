@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { PaceZone } from '../engine/VDOTEngine';
 import { formatPace } from '../engine/AnalysisEngine';
@@ -21,13 +22,15 @@ const ZONE_COLORS: Record<string, string> = {
 };
 
 export function TrainingZonesCard({ zones, vdot }: Props) {
+  const { t } = useTranslation();
+  
   if (zones.length === 0) return null;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>配速与心率区间</Text>
-        <Text style={styles.headerHint}>基于当前跑力</Text>
+        <Text style={styles.headerTitle}>{t('analysis.paceAndHeartRateZones')}</Text>
+        <Text style={styles.headerHint}>{t('analysis.basedOnCurrentVdot')}</Text>
       </View>
       {zones.map(zone => {
         const color = ZONE_COLORS[zone.zone] ?? Colors.gray2;

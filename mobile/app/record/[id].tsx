@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   BorderRadius,
   Colors,
@@ -19,12 +20,13 @@ import {
   Spacing,
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
-import { formatDuration, formatPace } from '../../src/engine/AnalysisEngine';
-import { Intensity, IntensityLabel, RunRecord } from '../../src/types';
+import { buildConclusion, buildRisk, buildSuggest, formatDuration, formatPace } from '../../src/engine/AnalysisEngine';
+import { Intensity, getIntensityLabel, RunRecord } from '../../src/types';
 
 export default function RecordDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const [record, setRecord] = useState<RunRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +38,10 @@ export default function RecordDetailScreen() {
   }, [id]);
 
   const handleDelete = () => {
-    Alert.alert('删除记录', '确定要删除这条跑步记录吗？', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('input.deleteRecord'), t('input.confirmDelete'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '删除',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           if (record?.id) {
@@ -62,7 +64,7 @@ export default function RecordDetailScreen() {
   if (!record) {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.errorText}>记录不存在</Text>
+        <Text style={styles.errorText}>{t('record.notFound')}</Text>
       </SafeAreaView>
     );
   }
@@ -78,37 +80,35 @@ export default function RecordDetailScreen() {
         {/* 强度标签 */}
         <View style={[styles.intensityBadge, { backgroundColor: intensityColor + '20' }]}>
           <Text style={[styles.intensityLabel, { color: intensityColor }]}>
-            {IntensityLabel[record.intensity as Intensity]}
+          {getIntensityLabel(record.intensity as Intensity)}
           </Text>
         </View>
 
         {/* 核心指标 */}
         <View style={styles.metricsGrid}>
-          <BigMetric label="距离" value={`${record.distance.toFixed(2)}`} unit="km" />
-          <BigMetric label="配速" value={formatPace(record.avg_pace)} unit="/km" />
-          <BigMetric label="心率" value={`${record.avg_hr}`} unit="bpm" />
-          <BigMetric label="时长" value={formatDuration(record.duration_sec)} />
+          <BigMetric label={t('record.metricDistance')} value={`${record.distance.toFixed(2)}`} unit="km" />
+          <BigMetric label={t('record.metricPace')} value={formatPace(record.avg_pace)} unit="/km" />
+          <BigMetric label={t('record.metricHR')} value={`${record.avg_hr}`} unit="bpm" />
+          <BigMetric label={t('record.metricDuration')} value={formatDuration(record.duration_sec)} />
           {record.tss != null && (
-            <BigMetric label="训练负荷" value={record.tss.toFixed(0)} unit="分" />
+            <BigMetric label={t('record.metricLoad')} value={record.tss.toFixed(0)} unit={t('record.metricLoadUnit')} />
           )}
           {record.vdot != null && record.vdot > 0 && (
-            <BigMetric label="跑力值" value={record.vdot.toFixed(1)} />
+            <BigMetric label={t('record.metricVDOT')} value={record.vdot.toFixed(1)} />
           )}
           {record.rpe != null && (
-            <BigMetric label="自感强度" value={`${record.rpe}`} unit="/10" />
+            <BigMetric label={t('record.metricRPE')} value={`${record.rpe}`} unit="/10" />
           )}
         </View>
 
         {/* 分析结论 */}
-        <AnalysisBlock title="本次总结" content={record.conclusion} />
-        <AnalysisBlock title="明日行动" content={record.suggest} />
-        {record.risk ? (
-          <AnalysisBlock title="风险提示" content={record.risk} warning />
-        ) : null}
+        <AnalysisBlock title={t('record.sectionSummary')} content={buildConclusion(record.intensity as Intensity)} />
+        <AnalysisBlock title={t('record.sectionTomorrow')} content={buildSuggest(record.intensity as Intensity, record.distance, [])} />
+        {(() => { const risk = buildRisk(record.intensity as Intensity, []); return risk ? <AnalysisBlock title={t('record.sectionRisk')} content={risk} warning /> : null; })()}
 
         {/* 删除按钮 */}
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-          <Text style={styles.deleteBtnText}>删除此记录</Text>
+          <Text style={styles.deleteBtnText}>{t('record.deleteBtn')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

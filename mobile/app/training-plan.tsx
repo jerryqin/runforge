@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   BorderRadius,
   Colors,
@@ -50,6 +51,7 @@ const TYPE_COLORS: Record<TrainingType, string> = {
 };
 
 export default function TrainingPlanScreen() {
+  const { t } = useTranslation();
   const [raceDate, setRaceDate] = useState('');
   const [currentVDOT, setCurrentVDOT] = useState(0);
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
@@ -90,12 +92,12 @@ export default function TrainingPlanScreen() {
 
   const handleGenerate = async () => {
     if (!raceDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      Alert.alert('日期格式错误', '请输入 YYYY-MM-DD 格式');
+      Alert.alert(t('input.dateFormatError'), t('input.dateFormatPrompt'));
       return;
     }
 
     if (currentVDOT <= 0) {
-      Alert.alert('无法生成', '请先录入至少一条3km以上的跑步记录，以便计算 VDOT');
+      Alert.alert(t('input.cannotGenerate'), t('input.needRunningRecord'));
       return;
     }
 
@@ -110,7 +112,7 @@ export default function TrainingPlanScreen() {
       });
 
       if (!generated) {
-        Alert.alert('距比赛太近', '至少需要2周以上才能生成训练计划');
+        Alert.alert(t('input.raceTooSoon'), t('input.needMinWeeks'));
         return;
       }
 
@@ -148,7 +150,7 @@ export default function TrainingPlanScreen() {
           <View style={styles.inputArea}>
             <View style={styles.row}>
               <View style={[styles.field, { flex: 1 }]}>
-                <Text style={styles.label}>比赛日期</Text>
+                <Text style={styles.label}>{t('tools.raceDate')}</Text>
                 <TextInput
                   style={styles.input}
                   value={raceDate}
@@ -175,7 +177,7 @@ export default function TrainingPlanScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.generateBtnText}>
-                {generating ? '生成中...' : plan ? '重新生成' : '生成训练计划'}
+                {generating ? t('tools.generating') : plan ? t('tools.regenerate') : t('tools.generateTrainingPlan')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -185,7 +187,7 @@ export default function TrainingPlanScreen() {
             <>
               <View style={styles.overview}>
                 <Text style={styles.overviewTitle}>
-                  {plan.totalWeeks} 周训练计划
+                  {t('tools.weekTrainingPlan', { weeks: plan.totalWeeks })}
                 </Text>
                 <View style={styles.phaseBar}>
                   {plan.phases.map(p => {
@@ -205,7 +207,7 @@ export default function TrainingPlanScreen() {
                         <Text style={[styles.phaseSegText, { color: PHASE_COLORS[p.phase] }]}>
                           {p.label}
                         </Text>
-                        <Text style={styles.phaseWeeks}>{weeks}周</Text>
+                        <Text style={styles.phaseWeeks}>{t('tools.weeksLabel', { count: weeks })}</Text>
                       </View>
                     );
                   })}
@@ -226,7 +228,7 @@ export default function TrainingPlanScreen() {
 
               {/* 配速区间参考 */}
               <View style={styles.zonesRef}>
-                <Text style={styles.zonesRefTitle}>配速区间参考 (VDOT {plan.targetVDOT.toFixed(1)})</Text>
+                <Text style={styles.zonesRefTitle}>{t('tools.paceZonesRef', { vdot: plan.targetVDOT.toFixed(1) })}</Text>
                 {plan.zones.map(z => (
                   <View key={z.zone} style={styles.zoneRefRow}>
                     <Text style={styles.zoneRefCode}>{z.zone}</Text>
@@ -254,6 +256,7 @@ function WeekCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const phaseColor = PHASE_COLORS[week.phase];
 
   return (
@@ -264,7 +267,7 @@ function WeekCard({
     >
       <View style={styles.weekHeader}>
         <View>
-          <Text style={styles.weekNumber}>第 {week.weekNumber} 周</Text>
+          <Text style={styles.weekNumber}>{t('tools.weekNumber', { number: week.weekNumber })}</Text>
           <Text style={[styles.weekPhase, { color: phaseColor }]}>{week.phaseLabel}</Text>
         </View>
         <View style={styles.weekRight}>

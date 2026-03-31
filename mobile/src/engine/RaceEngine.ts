@@ -3,6 +3,7 @@
  * 纯函数，无副作用
  */
 
+import i18n from '../i18n';
 import { formatPace } from './AnalysisEngine';
 
 const MARATHON_KM = 42.195;
@@ -67,19 +68,19 @@ export function buildSegments(targetPaceSec: number): SegmentStrategy[] {
       segment: '0–10km',
       paceSec: targetPaceSec + 12,
       paceLabel: formatPace(targetPaceSec + 12),
-      note: '保守起跑，比目标慢 10–15 秒，避免透支',
+      note: i18n.t('analysis.conservativeStartNote'),
     },
     {
       segment: '10–30km',
       paceSec: targetPaceSec,
       paceLabel: formatPace(targetPaceSec),
-      note: '按目标配速稳定推进',
+      note: i18n.t('analysis.maintainPaceNote'),
     },
     {
-      segment: '30km 后',
+      segment: '30km+',
       paceSec: targetPaceSec + 5,
       paceLabel: formatPace(targetPaceSec + 5),
-      note: '保守维持，优先完赛，不强求配速',
+      note: i18n.t('analysis.conservativeFinishNote'),
     },
   ];
 }
@@ -87,19 +88,19 @@ export function buildSegments(targetPaceSec: number): SegmentStrategy[] {
 // ===== 补给策略 =====
 export function buildGelStrategy(): GelStrategy[] {
   return [
-    { km: 10, note: '第 1 支能量胶，配水服下' },
-    { km: 20, note: '第 2 支能量胶，补充碳水' },
-    { km: 30, note: '第 3 支能量胶，最关键补给点' },
+    { km: 10, note: i18n.t('analysis.gel1Note') },
+    { km: 20, note: i18n.t('analysis.gel2Note') },
+    { km: 30, note: i18n.t('analysis.gel3Note') },
   ];
 }
 
 // ===== 赛前 10 天计划 =====
 export function buildPreRacePlan(): PreRacePlan[] {
   return [
-    { days: '赛前 10–7 天', plan: '每天 6–8km 轻松跑，保持状态，不加量' },
-    { days: '赛前 6–3 天', plan: '每天 5km 以内慢跑，以恢复为主' },
-    { days: '赛前 2–1 天', plan: '完全休息，碳水补足，早睡' },
-    { days: '比赛日', plan: '起跑前 2 小时进食，按配速策略执行' },
+    { days: i18n.t('analysis.preRaceDays10_7'), plan: i18n.t('analysis.preRacePlan10_7') },
+    { days: i18n.t('analysis.preRaceDays6_3'), plan: i18n.t('analysis.preRacePlan6_3') },
+    { days: i18n.t('analysis.preRaceDays2_1'), plan: i18n.t('analysis.preRacePlan2_1') },
+    { days: i18n.t('analysis.preRaceDayRace'), plan: i18n.t('analysis.preRacePlanRace') },
   ];
 }
 

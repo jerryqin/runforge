@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../src/constants/theme';
 import {
   DailyTrainingReminderSettings,
@@ -50,6 +51,7 @@ const PRESET_TIMES = [
 
 export default function ReminderSettingsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<DailyTrainingReminderSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,7 +100,7 @@ export default function ReminderSettingsScreen() {
         );
       }
     } catch (error) {
-      Alert.alert('设置失败', String(error));
+      Alert.alert(t('input.setupFailed'), String(error));
     } finally {
       setSaving(false);
     }
@@ -123,7 +125,7 @@ export default function ReminderSettingsScreen() {
 
       setSettings(nextSettings);
     } catch (error) {
-      Alert.alert('保存失败', String(error));
+      Alert.alert(t('input.saveFailed'), String(error));
     } finally {
       setSaving(false);
     }
@@ -150,9 +152,9 @@ export default function ReminderSettingsScreen() {
         return;
       }
 
-      Alert.alert('测试提醒已安排', '5 秒后会收到一条本地通知，可用于确认提醒功能已生效。');
+      Alert.alert(t('input.testReminderScheduled'), t('input.testReminderMessage'));
     } catch (error) {
-      Alert.alert('测试失败', String(error));
+      Alert.alert(t('input.testFailed'), String(error));
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import { TrainingPrescription, TrainingType } from '../engine/VDOTEngine';
 
@@ -29,6 +30,7 @@ const TYPE_COLORS: Record<TrainingType, string> = {
 };
 
 export function PrescriptionCard({ prescription }: Props) {
+  const { t } = useTranslation();
   const color = TYPE_COLORS[prescription.type];
   const icon = TYPE_ICONS[prescription.type];
 
@@ -44,7 +46,7 @@ export function PrescriptionCard({ prescription }: Props) {
         </View>
         {prescription.zone !== '-' && (
           <View style={[styles.zoneBadge, { backgroundColor: color + '20' }]}>
-            <Text style={[styles.zoneText, { color }]}>{prescription.zone}区</Text>
+            <Text style={[styles.zoneText, { color }]}>{t('analysis.zoneBadge', { zone: prescription.zone })}</Text>
           </View>
         )}
       </View>
@@ -53,7 +55,7 @@ export function PrescriptionCard({ prescription }: Props) {
 
       {prescription.paceRange ? (
         <View style={styles.paceRow}>
-          <Text style={styles.paceLabel}>目标配速</Text>
+          <Text style={styles.paceLabel}>{t('analysis.targetPace')}</Text>
           <Text style={[styles.paceValue, { color }]}>{prescription.paceRange}</Text>
         </View>
       ) : null}
@@ -61,10 +63,10 @@ export function PrescriptionCard({ prescription }: Props) {
       {(prescription.warmup || prescription.cooldown) && (
         <View style={styles.extra}>
           {prescription.warmup && (
-            <Text style={styles.extraText}>🔹 热身: {prescription.warmup}</Text>
+            <Text style={styles.extraText}>🔹 {t('analysis.warmupPrefix')}{prescription.warmup}</Text>
           )}
           {prescription.cooldown && (
-            <Text style={styles.extraText}>🔹 放松: {prescription.cooldown}</Text>
+            <Text style={styles.extraText}>🔹 {t('analysis.cooldownPrefix')}{prescription.cooldown}</Text>
           )}
         </View>
       )}

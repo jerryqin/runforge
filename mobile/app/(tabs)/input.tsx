@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   BorderRadius,
   Colors,
@@ -35,6 +36,7 @@ type InputMode = 'health' | 'ocr' | 'manual';
 
 export default function InputScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<InputMode>('health');
   const [ocrLoading, setOcrLoading] = useState(false);
 
@@ -86,7 +88,7 @@ export default function InputScreen() {
     if (syncTriggered.current && !healthData.isLoading) {
       syncTriggered.current = false;
       if (healthData.workouts.length === 0 && !healthData.error) {
-        Alert.alert('没有数据', '未找到跑步记录，请确认 Apple Health 中有跑步数据');
+        Alert.alert(t('input.alerts.noData'), t('input.noHealthData'));
       }
     }
   }, [healthData.isLoading, healthData.workouts.length, healthData.error]);
@@ -143,13 +145,13 @@ export default function InputScreen() {
       setMode('manual');
 
       if (ocrResult.confidence === 0) {
-        Alert.alert('识别失败', ocrResult.raw_text || '请手动输入数据');
+        Alert.alert(t('input.alerts.recognitionFailed'), ocrResult.raw_text || t('input.alerts.manualInputPrompt'));
       } else {
-        Alert.alert('识别完成', `本地识别完成，置信度 ${Math.round(ocrResult.confidence * 100)}%，请确认数据后提交`);
+        Alert.alert(t('input.alerts.recognitionComplete'), t('input.alerts.localRecognitionComplete', { confidence: Math.round(ocrResult.confidence * 100) }));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '请手动输入数据';
-      Alert.alert('识别失败', message);
+      const message = error instanceof Error ? error.message : t('input.alerts.manualInputPrompt');
+      Alert.alert(t('input.recognitionFailed'), message);
       setMode('manual');
     } finally {
       setOcrLoading(false);
@@ -213,13 +215,13 @@ export default function InputScreen() {
     
     // 切换到手动模式确认
     setMode('manual');
-    Alert.alert('数据已导入', '请确认数据后提交');
+    Alert.alert(t('input.dataImported'), t('input.pleaseConfirmData'));
   }, []);
 
   // ===== 批量导入所有 Health 记录 =====
   const handleBatchImport = async () => {
     if (healthData.workouts.length === 0) {
-      Alert.alert('没有数据', '请先同步健康数据');
+      Alert.alert(t('input.alerts.noData'), t('input.alerts.syncHealthDataFirst'));
       return;
     }
 
@@ -295,7 +297,7 @@ export default function InputScreen() {
                 ]
               );
             } catch (e) {
-              Alert.alert('导入失败', String(e));
+              Alert.alert(t('input.importFailed'), String(e));
             } finally {
               setSubmitting(false);
             }
@@ -312,10 +314,10 @@ export default function InputScreen() {
     const durationSec = parseDuration(duration);
     const hr = parseInt(avgHr, 10);
 
-    if (!dist || dist <= 0) return Alert.alert('请输入有效距离');
-    if (!durationSec) return Alert.alert('请输入有效时长（HH:MM:SS）');
-    if (!hr || hr < 60 || hr > 220) return Alert.alert('请输入有效心率（60–220）');
-    if (!runDate.match(/^\d{4}-\d{2}-\d{2}$/)) return Alert.alert('日期格式应为 YYYY-MM-DD');
+    if (!dist || dist <= 0) return Alert.alert(t('input.invalidDistance'));
+    if (!durationSec) return Alert.alert(t('input.invalidDuration'));
+    if (!hr || hr < 60 || hr > 220) return Alert.alert(t('input.invalidHeartRate'));
+    if (!runDate.match(/^\d{4}-\d{2}-\d{2}$/)) return Alert.alert(t('input.invalidDateFormat'));
 
     setSubmitting(true);
     try {
@@ -368,7 +370,7 @@ export default function InputScreen() {
       resetManualForm();
       setMode(selectedWorkout ? 'health' : 'manual');
     } catch (e) {
-      Alert.alert('保存失败', String(e));
+      Alert.alert(t('input.saveFailed'), String(e));
     } finally {
       setSubmitting(false);
     }
@@ -383,11 +385,11 @@ export default function InputScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* 模式切换 */}
           <View style={styles.modeSwitch}>
-            <ModeTab label="🍎 健康数据" active={mode === 'health'} onPress={() => setMode('health')} />
+            <ModeTab label={`🍎 ${t('input.healthData')}`} active={mode === 'health'} onPress={() => setMode('health')} />
             {LOCAL_OCR_ENABLED ? (
-              <ModeTab label="📷 本地识别" active={mode === 'ocr'} onPress={() => setMode('ocr')} />
+              <ModeTab label={`📷 ${t('input.localOCR')}`} active={mode === 'ocr'} onPress={() => setMode('ocr')} />
             ) : null}
-            <ModeTab label="✏️ 手动" active={mode === 'manual'} onPress={() => setMode('manual')} />
+            <ModeTab label={`✏️ ${t('input.manual')}`} active={mode === 'manual'} onPress={() => setMode('manual')} />
           </View>
 
 
@@ -398,10 +400,10 @@ export default function InputScreen() {
                 <View style={styles.healthLoading}>
                   <ActivityIndicator size="large" color={Colors.primary} />
                   <Text style={styles.healthLoadingText}>
-                    {healthData.lastSyncDate ? '正在同步新数据...' : '正在同步全部历史数据...'}
+                    {healthData.lastSyncDate ? t('input.syncingNew') : t('input.syncingAll')}
                   </Text>
                   {!healthData.lastSyncDate && (
-                    <Text style={styles.healthLoadingSubText}>首次同步需要较长时间，请稍候</Text>
+                    <Text style={styles.healthLoadingSubText}>{t('input.firstSyncNote')}</Text>
                   )}
                 </View>
               ) : healthData.workouts.length === 0 ? (
@@ -412,13 +414,13 @@ export default function InputScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={styles.healthBtnIcon}>🍎</Text>
-                    <Text style={styles.healthBtnTitle}>从 Apple Health 同步</Text>
+                    <Text style={styles.healthBtnTitle}>{t('input.syncFromAppleHealth')}</Text>
                     <Text style={styles.healthBtnSub}>
-                      {healthData.statusMessage || '读取全部历史跑步记录'}
+                      {healthData.statusMessage || t('input.defaultHealthStatusMsg')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setMode('manual')}>
-                    <Text style={styles.manualLink}>或直接手动输入 →</Text>
+                    <Text style={styles.manualLink}>{t('input.orManualInput')} →</Text>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -426,18 +428,18 @@ export default function InputScreen() {
                   <View style={styles.workoutHeader}>
                     <View>
                       <Text style={styles.workoutHeaderTitle}>
-                        {visibleCount} 条跑步记录
+                        {t('input.workoutCount', { count: visibleCount })}
                       </Text>
                       {lastSyncText && (
-                        <Text style={styles.workoutHeaderSub}>上次同步：{lastSyncText}</Text>
+                        <Text style={styles.workoutHeaderSub}>{t('input.lastSync', { time: lastSyncText })}</Text>
                       )}
                     </View>
                     <View style={styles.syncButtons}>
                       <TouchableOpacity onPress={handleHealthSync} style={styles.syncBtn}>
-                        <Text style={styles.syncBtnText}>增量</Text>
+                        <Text style={styles.syncBtnText}>{t('input.incrementalSync')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={handleFullSync} style={[styles.syncBtn, styles.syncBtnSecondary]}>
-                        <Text style={[styles.syncBtnText, styles.syncBtnTextSecondary]}>全量</Text>
+                        <Text style={[styles.syncBtnText, styles.syncBtnTextSecondary]}>{t('input.fullSync')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -453,7 +455,7 @@ export default function InputScreen() {
                       <>
                         <Text style={styles.batchImportBtnIcon}>⚡</Text>
                         <Text style={styles.batchImportBtnText}>
-                          批量导入全部 {visibleCount} 条
+                          {t('input.batchImportAll', { count: visibleCount })}
                         </Text>
                       </>
                     )}
@@ -474,7 +476,7 @@ export default function InputScreen() {
                           >
                             <Text style={styles.monthHeaderTitle}>{month}</Text>
                             <Text style={styles.monthHeaderMeta}>
-                              {visibleItems.length} 条　{isCollapsed ? '▶' : '▼'}
+                              {t('input.itemCount', { count: visibleItems.length })}　{isCollapsed ? '▶' : '▼'}
                             </Text>
                           </TouchableOpacity>
                           {/* 展开时显示内容 */}
@@ -504,17 +506,17 @@ export default function InputScreen() {
               {ocrLoading ? (
                 <View style={styles.ocrLoading}>
                   <ActivityIndicator size="large" color={Colors.primary} />
-                  <Text style={styles.ocrLoadingText}>正在本地识别截图...</Text>
+                  <Text style={styles.ocrLoadingText}>{t('input.alerts.recognizingScreenshot')}</Text>
                 </View>
               ) : (
                 <>
                   <TouchableOpacity style={styles.ocrBtn} onPress={handlePickImage} activeOpacity={0.8}>
                     <Text style={styles.ocrBtnIcon}>🖼️</Text>
-                    <Text style={styles.ocrBtnTitle}>选择跑步截图</Text>
-                    <Text style={styles.ocrBtnSub}>仅在本机识别，支持 Keep、Garmin、Apple Watch 等常见截图</Text>
+                    <Text style={styles.ocrBtnTitle}>{t('input.selectRunningScreenshot')}</Text>
+                    <Text style={styles.ocrBtnSub}>{t('input.ocrDescription')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setMode('manual')}>
-                    <Text style={styles.manualLink}>或手动输入 →</Text>
+                    <Text style={styles.manualLink}>{t('input.orManualInput')} →</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -525,28 +527,28 @@ export default function InputScreen() {
           {mode === 'manual' && (
             <View style={styles.form}>
               <FormField
-                label="距离 (km)"
+                label={t('input.distance')}
                 value={distance}
                 onChangeText={setDistance}
-                placeholder="如：10.5"
+                placeholder={t('input.placeholder_distance')}
                 keyboardType="decimal-pad"
               />
               <FormField
-                label="时长 (HH:MM:SS)"
+                label={t('input.durationFormat')}
                 value={duration}
                 onChangeText={setDuration}
-                placeholder="如：01:05:33"
+                placeholder={t('input.placeholder_duration')}
                 keyboardType="numbers-and-punctuation"
               />
               <FormField
-                label="平均心率 (bpm) *"
+                label={t('input.avgHeartRateLabel')}
                 value={avgHr}
                 onChangeText={setAvgHr}
-                placeholder="如：131"
+                placeholder={t('input.placeholder_hr')}
                 keyboardType="number-pad"
               />
               <FormField
-                label="日期"
+                label={t('input.dateLabel')}
                 value={runDate}
                 onChangeText={setRunDate}
                 placeholder="YYYY-MM-DD"
@@ -555,8 +557,8 @@ export default function InputScreen() {
 
               {/* RPE 主观疲劳评分 */}
               <View style={styles.rpeContainer}>
-                <Text style={styles.fieldLabel}>主观疲劳 RPE（可选）</Text>
-                <Text style={styles.rpeHint}>1=非常轻松  5=适中  10=筋疲力竭</Text>
+                <Text style={styles.fieldLabel}>{t('input.rpeLabel')}</Text>
+                <Text style={styles.rpeHint}>{t('input.rpeDescription')}</Text>
                 <View style={styles.rpeRow}>
                   {[1,2,3,4,5,6,7,8,9,10].map(n => (
                     <TouchableOpacity
@@ -587,7 +589,7 @@ export default function InputScreen() {
               {/* 配速预计算提示 */}
               {distance && duration ? (
                 <View style={styles.pacePreview}>
-                  <Text style={styles.pacePreviewLabel}>预估配速</Text>
+                  <Text style={styles.pacePreviewLabel}>{t('input.estimatedPace')}</Text>
                   <Text style={styles.pacePreviewValue}>
                     {(() => {
                       const sec = parseDuration(duration);
@@ -611,7 +613,7 @@ export default function InputScreen() {
                 {submitting ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Text style={styles.submitBtnText}>分析并保存</Text>
+                  <Text style={styles.submitBtnText}>{t('analysis.analyzeAndSave')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -625,7 +627,8 @@ export default function InputScreen() {
 async function pickImageForOCR() {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') {
-    Alert.alert('需要相册权限', '请在设置中允许访问相册');
+    const { default: i18n } = await import('../../src/i18n');
+    Alert.alert(i18n.t('input.cameraPermissionNeeded'), i18n.t('input.cameraPermissionPrompt'));
     return null;
   }
 

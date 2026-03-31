@@ -1,9 +1,21 @@
+import i18n from '../i18n';
+
 // ===== 强度等级 =====
 export enum Intensity {
   EASY = 1,    // 轻松跑
   NORMAL = 2,  // 中等强度
   HIGH = 3,    // 高强度
   OVER = 4,    // 过度训练
+}
+
+export function getIntensityLabel(intensity: Intensity): string {
+  const labels: Record<Intensity, string> = {
+    [Intensity.EASY]: i18n.t('analysis.intensityEasy'),
+    [Intensity.NORMAL]: i18n.t('analysis.intensityNormal'),
+    [Intensity.HIGH]: i18n.t('analysis.intensityHigh'),
+    [Intensity.OVER]: i18n.t('analysis.intensityOver'),
+  };
+  return labels[intensity];
 }
 
 export const IntensityLabel: Record<Intensity, string> = {
@@ -19,6 +31,16 @@ export enum BodyStatus {
   NORMAL = 2,  // 正常
   TIRED = 3,   // 轻微疲劳
   REST = 4,    // 建议休息
+}
+
+export function getBodyStatusLabel(status: BodyStatus): string {
+  const labels: Record<BodyStatus, string> = {
+    [BodyStatus.READY]: i18n.t('analysis.bodyStatusReady'),
+    [BodyStatus.NORMAL]: i18n.t('analysis.bodyStatusNormal'),
+    [BodyStatus.TIRED]: i18n.t('analysis.bodyStatusTired'),
+    [BodyStatus.REST]: i18n.t('analysis.bodyStatusRest'),
+  };
+  return labels[status];
 }
 
 export const BodyStatusLabel: Record<BodyStatus, string> = {
