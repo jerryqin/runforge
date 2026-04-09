@@ -2,7 +2,7 @@
   "expo": {
     "name": "RunForge",
     "slug": "runforge",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -25,7 +25,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jerryqin.runforge",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "允许 RunForge 访问你的照片，用于选择跑步截图或导入训练相关文件。",
