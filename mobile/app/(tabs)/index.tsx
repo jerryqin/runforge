@@ -25,7 +25,7 @@ import {
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
 import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, RecoveryPlan } from '../../src/engine/AnalysisEngine';
-import { buildTrainingMomentum, buildWeeklyImpact, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
+import { buildTrainingMomentum, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
 import { BodyStatus, RunRecord, Intensity } from '../../src/types';
@@ -428,13 +428,15 @@ function FeedbackCard({
   return (
     <View style={styles.feedbackCard}>
       <Text style={styles.feedbackTitle}>{t('weeklyProgress.trainingFeedback')}</Text>
-      <Text style={styles.feedbackBody}>{record.conclusion}</Text>
 
+      {/* 明日建议：针对本次训练强度给出下一步行动 */}
+      <Text style={styles.feedbackSubTitle}>{t('analysis.tomorrowAction')}</Text>
+      <Text style={styles.feedbackBody}>{record.suggest}</Text>
+
+      {/* 本次贡献：这条记录为本周目标带来的推进 */}
       {weeklyProgress ? (
         <>
           <View style={styles.feedbackDivider} />
-          <Text style={styles.feedbackSubTitle}>{t('weeklyProgress.thisWeekRhythm')}</Text>
-          <Text style={styles.feedbackBody}>{buildWeeklyImpact(weeklyProgress)}</Text>
           <Text style={styles.feedbackMomentum}>{buildTrainingMomentum(record, weeklyProgress)}</Text>
         </>
       ) : null}

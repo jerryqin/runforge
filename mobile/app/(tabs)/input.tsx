@@ -69,6 +69,17 @@ export default function InputScreen() {
       }));
   }, [healthData.workouts]);
 
+  const [savedDates, setSavedDates] = useState<Set<string>>(new Set());
+
+  // 加载已保存的日期，用于标记已导入的记录
+  useEffect(() => {
+    if (healthData.workouts.length > 0) {
+      runRecordRepo.fetchAll().then(records => {
+        setSavedDates(new Set(records.map(r => r.run_date)));
+      });
+    }
+  }, [healthData.workouts.length]);
+
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const toggleMonth = useCallback((month: string) => {
     setCollapsedMonths(prev => {
@@ -487,6 +498,7 @@ export default function InputScreen() {
                                 key={key}
                                 itemKey={key}
                                 workout={item}
+                                isSaved={savedDates.has(item.startDate.split('T')[0])}
                                 onImport={handleImportWorkout}
                                 onDelete={handleDeleteWorkout}
                               />
@@ -662,11 +674,13 @@ function ModeTab({ label, active, onPress }: { label: string; active: boolean; o
 const WorkoutItem = React.memo(function WorkoutItem({
   workout,
   itemKey,
+  isSaved,
   onImport,
   onDelete,
 }: {
   workout: HealthWorkout;
   itemKey: string;
+  isSaved?: boolean;
   onImport: (w: HealthWorkout) => void;
   onDelete: (key: string) => void;
 }) {
@@ -685,9 +699,9 @@ const WorkoutItem = React.memo(function WorkoutItem({
 
   return (
     <TouchableOpacity
-      style={styles.workoutItem}
-      onPress={() => onImport(workout)}
-      activeOpacity={0.7}
+      style={[styles.workoutItem, isSaved && styles.workoutItemSaved]}
+      onPress={isSaved ? undefined : () => onImport(workout)}
+      activeOpacity={isSaved ? 1 : 0.7}
     >
       <View style={styles.workoutItemInfo}>
         <Text style={styles.workoutItemDate}>{dateStr}</Text>
@@ -709,7 +723,7 @@ const WorkoutItem = React.memo(function WorkoutItem({
           )}
         </View>
       </View>
-      <Text style={styles.workoutItemArrow}>→</Text>
+      {!isSaved && <Text style={styles.workoutItemArrow}>→</Text>}
     </TouchableOpacity>
   );
 });
@@ -855,6 +869,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.separator,
+    marginBottom: Spacing.sm,
+  },
+  workoutItemSaved: {
+    opacity: 0.5,
   },
   workoutItemInfo: { flex: 1, gap: Spacing.xs },
   workoutItemDate: { fontSize: FontSize.h3, fontWeight: FontWeight.semibold, color: Colors.black },

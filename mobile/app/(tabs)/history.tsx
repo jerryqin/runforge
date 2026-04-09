@@ -82,11 +82,18 @@ export default function HistoryScreen() {
   const stats = useMemo(() => {
     if (records.length === 0) return null;
     
-    const totalKm = records.reduce((sum, r) => sum + r.distance, 0);
-    const totalSec = records.reduce((sum, r) => sum + r.duration_sec, 0);
-    const avgMinPerKm = totalSec / 60 / totalKm;
-    const minPart = Math.floor(avgMinPerKm);
-    const secPart = Math.round((avgMinPerKm - minPart) * 60);
+    // 仅统计有实际距离和时长的记录（过滤 GPS 丢失等异常数据）
+    const valid = records.filter(r => r.distance > 0 && r.duration_sec > 0);
+    if (valid.length === 0) return null;
+
+    const totalKm = valid.reduce((sum, r) => sum + r.distance, 0);
+    const totalSec = valid.reduce((sum, r) => sum + r.duration_sec, 0);
+    // 加权平均配速（以距离为权重），单位：秒/公里
+    const avgSecPerKm = totalSec / totalKm;
+    let minPart = Math.floor(avgSecPerKm / 60);
+    let secPart = Math.round(avgSecPerKm % 60);
+    // 修正进位：59.5→60 时应进为下一分钟
+    if (secPart === 60) { minPart += 1; secPart = 0; }
     
     const dates = records.map(r => new Date(r.run_date).getTime()).sort((a, b) => b - a);
     const startDate = new Date(dates[dates.length - 1]);

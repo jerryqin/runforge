@@ -68,16 +68,41 @@ export default function TrainingFeedbackScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {shouldShowFeedbackBlocks ? (
           <View style={styles.heroCard}>
-            <View style={styles.heroSuccessBadge}>
-              <Text style={styles.heroSuccessIcon}>✓</Text>
+            {/* 顶部：成功标记 + 强度标签 */}
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroSuccessBadge}>
+                <Text style={styles.heroSuccessIcon}>✓</Text>
+              </View>
+              <View style={[styles.intensityBadge, { backgroundColor: intensityColor + '20' }]}>
+                <Text style={[styles.intensityText, { color: intensityColor }]}>
+                  {IntensityLabel[intensity]}
+                </Text>
+              </View>
             </View>
-            <Text style={styles.heroEyebrow}>训练反馈</Text>
-            <Text style={styles.heroTitle}>{weeklyContext.feedbackTitle}</Text>
-            <Text style={styles.heroBody}>
-              {typeof conclusion === 'string' && conclusion.length > 0
-                ? conclusion
-                : '系统已根据你的训练表现更新后续建议。'}
-            </Text>
+
+            <Text style={styles.heroTitle}>训练已记录</Text>
+
+            {/* 本次数据三列 */}
+            {record ? (
+              <View style={styles.heroMetricsRow}>
+                <View style={styles.heroMetric}>
+                  <Text style={styles.heroMetricValue}>{record.distance.toFixed(1)}</Text>
+                  <Text style={styles.heroMetricLabel}>km 距离</Text>
+                </View>
+                <View style={styles.heroMetricDivider} />
+                <View style={styles.heroMetric}>
+                  <Text style={styles.heroMetricValue}>{formatPace(record.avg_pace)}</Text>
+                  <Text style={styles.heroMetricLabel}>/km 配速</Text>
+                </View>
+                <View style={styles.heroMetricDivider} />
+                <View style={styles.heroMetric}>
+                  <Text style={styles.heroMetricValue}>{record.avg_hr}</Text>
+                  <Text style={styles.heroMetricLabel}>bpm 心率</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* 本次推进 */}
             <View style={styles.heroMomentumCard}>
               <Text style={styles.heroMomentumLabel}>本次推进</Text>
               <Text style={styles.heroMomentumText}>{successText}</Text>
@@ -213,59 +238,83 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
   heroCard: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.separator,
+    borderTopWidth: 4,
+    borderTopColor: Colors.statusGreen,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
   },
   heroSuccessBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.statusGreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroSuccessIcon: {
-    fontSize: FontSize.h2,
+    fontSize: FontSize.body,
     fontWeight: FontWeight.bold,
     color: Colors.white,
-  },
-  heroEyebrow: {
-    fontSize: FontSize.caption,
-    color: Colors.white + 'CC',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   heroTitle: {
     fontSize: FontSize.h2,
     fontWeight: FontWeight.bold,
-    color: Colors.white,
+    color: Colors.black,
   },
-  heroBody: {
-    fontSize: FontSize.body,
-    color: Colors.white,
-    lineHeight: 22,
+  heroMetricsRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.gray5,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: 'center',
+  },
+  heroMetric: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  heroMetricDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: Colors.separator,
+  },
+  heroMetricValue: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  },
+  heroMetricLabel: {
+    fontSize: FontSize.caption,
+    color: Colors.gray3,
   },
   heroMomentumCard: {
-    marginTop: Spacing.xs,
-    backgroundColor: Colors.white + '10',
+    backgroundColor: Colors.primary + '0D',
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: 4,
-    borderWidth: 1,
-    borderColor: Colors.white + '12',
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
   },
   heroMomentumLabel: {
     fontSize: FontSize.caption,
-    color: Colors.white + 'CC',
+    color: Colors.primary,
+    fontWeight: FontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   heroMomentumText: {
     fontSize: FontSize.body,
-    color: Colors.white,
-    fontWeight: FontWeight.semibold,
+    color: Colors.black,
+    fontWeight: FontWeight.medium,
     lineHeight: 22,
   },
   metricsCard: {
