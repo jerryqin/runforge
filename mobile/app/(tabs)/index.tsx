@@ -24,7 +24,8 @@ import {
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
-import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, RecoveryPlan } from '../../src/engine/AnalysisEngine';
+import { challengesRepo, Challenge } from '../../src/db/repositories/ChallengesRepository';
+import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, formatPace, RecoveryPlan } from '../../src/engine/AnalysisEngine';
 import { buildTrainingMomentum, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
@@ -42,12 +43,15 @@ export default function HomeScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [fitnessMetrics, setFitnessMetrics] = useState<{ atl: number; ctl: number; tsb: number } | null>(null);
   const [recoveryPlan, setRecoveryPlan] = useState<RecoveryPlan | null>(null);
+  const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
 
   const load = useCallback(async () => {
-    const [records, prof] = await Promise.all([
+    const [records, prof, allChallenges] = await Promise.all([
       runRecordRepo.fetchAll(),
       userProfileRepo.get(),
+      challengesRepo.fetchAll(),
     ]);
+    setActiveChallenges(allChallenges.filter(c => !c.achieved));
     
     setProfile(prof);
     setAllRecords(records);
@@ -227,6 +231,13 @@ export default function HomeScreen() {
             <EmptyState message={t('home.emptyTodayAction')} />
           )}
         </Section>
+
+        {/* 我的挑战 */}
+        {activeChallenges.length > 0 && (
+          <Section title="我的挑战">
+            <ActiveChallengesCard challenges={activeChallenges} />
+          </Section>
+        )}
 
         {/* 恢复与负荷（紧接今日行动，作为数据支撑） */}
         {allRecords.length > 0 && profile && fitnessMetrics && (
@@ -514,6 +525,27 @@ function ActionButton({
   );
 }
 
+
+function ActiveChallengesCard({ challenges }: { challenges: Challenge[] }) {
+  return (
+    <View style={styles.activeChallengesCard}>
+      {challenges.map((c) => {
+        const days = Math.max(0, Math.floor((Date.now() - c.created_at) / 86400000));
+        return (
+          <View key={c.id} style={styles.activeChallengeRow}>
+            <Text style={styles.activeChallengeIcon}>🎯</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.activeChallengeTitle}>{c.title}</Text>
+              <Text style={styles.activeChallengesSub}>
+                {c.target_km} km · {formatPace(c.target_pace_sec)}/km{days >= 1 ? ` · 第 ${days} 天` : ''}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 function buildWeeklyCompletionMeta(progress: WeeklyProgress, t: (key: string) => string): string {
   if (progress.completionRate >= 100) {
@@ -892,5 +924,34 @@ const styles = StyleSheet.create({
   onboardingSecondaryBtnText: {
     fontSize: FontSize.body,
     color: Colors.gray2,
+  },
+  // ===== 进行中的挑战 =====
+  activeChallengesCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  activeChallengeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.primary + '08',
+    borderRadius: BorderRadius.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  activeChallengeIcon: { fontSize: 18, marginTop: 1 },
+  activeChallengeTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.black,
+  },
+  activeChallengesSub: {
+    fontSize: FontSize.caption,
+    color: Colors.gray2,
+    marginTop: 2,
   },
 });

@@ -80,6 +80,8 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
   await migrateV2(db);
   // 增量迁移：v3 新增 running_start_year
   await migrateV3(db);
+  // 增量迁移：v4 新增 challenges 表
+  await migrateV4(db);
 }
 
 async function migrateV2(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -137,6 +139,29 @@ async function migrateV3(db: SQLite.SQLiteDatabase): Promise<void> {
 
   await db.execAsync(
     `INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (3, datetime('now'))`
+  );
+}
+
+async function migrateV4(db: SQLite.SQLiteDatabase): Promise<void> {
+  const v4 = await db.getFirstAsync<{ version: number }>(
+    `SELECT version FROM schema_version WHERE version = 4`
+  );
+  if (v4) return;
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS challenges (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      title           TEXT NOT NULL,
+      target_km       REAL NOT NULL,
+      target_pace_sec INTEGER NOT NULL,
+      created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      achieved        INTEGER NOT NULL DEFAULT 0,
+      achieved_date   TEXT
+    );
+  `);
+
+  await db.execAsync(
+    `INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (4, datetime('now'))`
   );
 }
 

@@ -51,8 +51,8 @@
   "tabs": {
     "home": "Home",
     "input": "Record",
-    "history": "History",
-    "profile": "Profile"
+    "history": "Activity",
+    "profile": "Me"
   },
   "navigation": {
     "back": "Back",

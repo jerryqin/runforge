@@ -51,8 +51,8 @@
   "tabs": {
     "home": "首页",
     "input": "记录",
-    "history": "历史",
-    "profile": "档案"
+    "history": "活动",
+    "profile": "我"
   },
   "navigation": {
     "back": "返回",
