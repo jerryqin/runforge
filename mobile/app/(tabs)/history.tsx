@@ -4,7 +4,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -647,8 +649,13 @@ function ChallengeModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>{editing ? '编辑挑战' : '新增挑战'}</Text>
 
           <Text style={styles.modalLabel}>挑战名称</Text>
@@ -699,8 +706,10 @@ function ChallengeModal({
               <Text style={styles.modalSaveText}>保存</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+          </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
