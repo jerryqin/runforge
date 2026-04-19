@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -29,6 +29,7 @@ import { buildTrainingMomentum, buildWeeklyImpact, calcWeeklyProgress } from '..
 import { ocrEngine } from '../../src/services/OCRService';
 import { useHealthData } from '../../src/services/useHealthData';
 import { HealthStatus, HealthWorkout } from '../../src/services/HealthService';
+import { RunRecord } from '../../src/types';
 
 const LOCAL_OCR_ENABLED = Platform.OS === 'ios';
 
@@ -69,16 +70,12 @@ export default function InputScreen() {
       }));
   }, [healthData.workouts]);
 
-  const [savedDates, setSavedDates] = useState<Set<string>>(new Set());
+  const [savedRecords, setSavedRecords] = useState<RunRecord[]>([]);
 
-  // 加载已保存的日期，用于标记已导入的记录
-  useEffect(() => {
-    if (healthData.workouts.length > 0) {
-      runRecordRepo.fetchAll().then(records => {
-        setSavedDates(new Set(records.map(r => r.run_date)));
-      });
-    }
-  }, [healthData.workouts.length]);
+  // 每次切换到本页时刷新已保存记录，支持同一天多条记录的精确匹配
+  useFocusEffect(useCallback(() => {
+    runRecordRepo.fetchAll().then(setSavedRecords);
+  }, []));
 
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const toggleMonth = useCallback((month: string) => {
@@ -498,7 +495,11 @@ export default function InputScreen() {
                                 key={key}
                                 itemKey={key}
                                 workout={item}
-                                isSaved={savedDates.has(item.startDate.split('T')[0])}
+                                isSaved={savedRecords.some(r =>
+                                  r.run_date === item.startDate.split('T')[0] &&
+                                  Math.abs(r.distance - item.distanceKm) < 0.1 &&
+                                  Math.abs(r.duration_sec - item.durationSec) < 60
+                                )}
                                 onImport={handleImportWorkout}
                                 onDelete={handleDeleteWorkout}
                               />

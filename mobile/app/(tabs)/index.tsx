@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -100,7 +101,10 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const latest = recentRecords[0];
+  // 最近一天的所有跑步记录
+  const latestDate = recentRecords[0]?.run_date ?? null;
+  const latestDayRecords = latestDate ? recentRecords.filter(r => r.run_date === latestDate) : [];
+
   const weeklyProgress = profile
     ? { ...calcWeeklyProgress(allRecords, profile.weekly_km ?? 30), currentVDOT }
     : null;
@@ -273,13 +277,13 @@ export default function HomeScreen() {
         </Section>
 
         {/* 最近一次训练 */}
-        {latest && (
+        {latestDayRecords.length > 0 && (
           <Section title={t('home.recentTraining')}>
-            <RunSummaryCard
-              record={latest}
-              onPress={() => router.push(`/record/${latest.id}`)}
+            <RecentTrainingCarousel
+              records={latestDayRecords}
+              weeklyProgress={weeklyProgress}
+              onPressRecord={(id) => router.push(`/record/${id}`)}
             />
-            <FeedbackCard record={latest} weeklyProgress={weeklyProgress} />
           </Section>
         )}
       </ScrollView>
@@ -453,6 +457,50 @@ function FeedbackCard({
       ) : null}
 
       {record.risk ? <Text style={styles.riskText}>⚠️ {record.risk}</Text> : null}
+    </View>
+  );
+}
+
+const CARD_GAP = Spacing.sm;
+const PEEK_WIDTH = 20; // 下一张卡片从右侧露出的宽度
+
+function RecentTrainingCarousel({
+  records,
+  weeklyProgress,
+  onPressRecord,
+}: {
+  records: RunRecord[];
+  weeklyProgress: WeeklyProgress | null;
+  onPressRecord: (id: number) => void;
+}) {
+  const screenWidth = Dimensions.get('window').width;
+  // 容器左右各有 Spacing.md 的 padding（来自父级 scroll），再减去右侧露出量
+  const containerPadding = Spacing.md * 2;
+  const cardWidth = records.length > 1
+    ? screenWidth - containerPadding - CARD_GAP - PEEK_WIDTH
+    : screenWidth - containerPadding;
+
+  return (
+    <View style={styles.carouselWrapper}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={cardWidth + CARD_GAP}
+        decelerationRate="fast"
+        contentContainerStyle={{ gap: CARD_GAP, paddingRight: records.length > 1 ? PEEK_WIDTH : 0 }}
+      >
+        {records.map((record) => (
+          <View key={record.id} style={{ width: cardWidth }}>
+            <RunSummaryCard
+              record={record}
+              onPress={() => record.id != null && onPressRecord(record.id!)}
+            />
+            <View style={{ marginTop: CARD_GAP }}>
+              <FeedbackCard record={record} weeklyProgress={weeklyProgress} />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -851,6 +899,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.separator,
     marginVertical: Spacing.xs,
+  },
+  carouselWrapper: {
+    // 负 margin 使横向滚动溢出父容器的 padding，让右侧 peek 可见
+    marginHorizontal: -Spacing.md,
+    paddingHorizontal: Spacing.md,
+    overflow: 'visible',
   },
   // 新用户引导整页
   onboardingPage: {
