@@ -495,6 +495,183 @@ export function analyze(input: AnalysisInput): AnalysisOutput {
   return { intensity, avgPace, conclusion, suggest, risk, tss, vdot, rpe, cadence };
 }
 
+// ===== 丰富训练反馈 =====
+
+export interface RichFeedbackInsight {
+  key: string;
+  icon: string;
+  title: string;
+  detail: string;
+  variant: 'positive' | 'neutral' | 'warning';
+}
+
+export interface TomorrowRecommendation {
+  type: string;       // 训练类型名称
+  distanceRange: string; // 建议距离，如 "8–10 km"
+  paceHint: string;   // 配速建议
+  reason: string;     // 原因说明
+}
+
+export interface RichFeedback {
+  insights: RichFeedbackInsight[];
+  tomorrow: TomorrowRecommendation;
+}
+
+/** E 区配速辅助（内联，避免循环依赖 VDOTEngine） */
+function eZonePace(vdot: number): { min: number; max: number } {
+  const paceAtPct = (pct: number): number => {
+    const vo2 = vdot * pct;
+    const a = 0.000104, b = 0.182258, c = -4.60 - vo2;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return 480;
+    const speed = (-b + Math.sqrt(disc)) / (2 * a);
+    return speed > 0 ? (1000 / speed) * 60 : 480;
+  };
+  return { min: paceAtPct(0.74), max: paceAtPct(0.59) };
+}
+
+function fmtPaceSec(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}'${s.toString().padStart(2, '0')}"`;
+}
+
+function buildPaceComparisonInsight(
+  record: RunRecord,
+  history: RunRecord[]
+): RichFeedbackInsight | null {
+  const validHistory = history.filter(r => r.distance >= 3 && r.avg_pace > 0).slice(0, 15);
+  if (validHistory.length < 3 || record.distance < 3) return null;
+
+  const totalDist = validHistory.reduce((s, r) => s + r.distance, 0);
+  const weightedAvgPace = validHistory.reduce((s, r) => s + r.avg_pace * r.distance, 0) / totalDist;
+  const pctDiff = (record.avg_pace - weightedAvgPace) / weightedAvgPace * 100;
+  const abs = Math.abs(pctDiff).toFixed(1);
+
+  if (pctDiff < -5) return { key: 'pace', icon: '🚀', title: `配速比近期快 ${abs}%`, detail: '今日状态出色，跑出了高水平表现', variant: 'positive' };
+  if (pctDiff < -2) return { key: 'pace', icon: '📈', title: `配速快于近期均值 ${abs}%`, detail: '发挥稳定，训练效果持续体现', variant: 'positive' };
+  if (pctDiff <= 2)  return { key: 'pace', icon: '➡️', title: '配速与近期水平相当', detail: '节奏稳定，训练连贯性良好', variant: 'neutral' };
+  if (pctDiff <= 5)  return { key: 'pace', icon: '🌡️', title: `配速比近期慢 ${abs}%`, detail: '轻度偏慢，可能是气候或轻度疲劳', variant: 'neutral' };
+  return { key: 'pace', icon: '⚠️', title: `配速比近期慢 ${abs}%`, detail: '明显偏慢，注意是否有睡眠不足或过度疲劳', variant: 'warning' };
+}
+
+function buildVDOTTrendInsight(
+  record: RunRecord,
+  history: RunRecord[]
+): RichFeedbackInsight | null {
+  const currentVDOT = record.vdot;
+  if (!currentVDOT || currentVDOT <= 0 || record.distance < 3) return null;
+
+  const validHistory = history.filter(r => r.distance >= 3 && r.vdot && r.vdot > 0).slice(0, 5);
+  if (validHistory.length < 2) {
+    return { key: 'vdot', icon: '🏃', title: `跑力 VDOT ${currentVDOT.toFixed(1)}`, detail: '继续积累数据，即可看到跑力变化趋势', variant: 'neutral' };
+  }
+
+  const sorted = [...validHistory.map(r => r.vdot!)].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const diff = currentVDOT - median;
+
+  if (diff >= 1.5) return { key: 'vdot', icon: '🔥', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，近期最佳`, detail: `较近期中位值提升 ${diff.toFixed(1)}，有氧能力显著成长`, variant: 'positive' };
+  if (diff >= 0.5) return { key: 'vdot', icon: '📈', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，稳步提升`, detail: `较近期高 ${diff.toFixed(1)}，训练效果持续显现`, variant: 'positive' };
+  if (diff >= -0.5) return { key: 'vdot', icon: '⚖️', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，稳定发挥`, detail: '与近期水平相当，基础扎实', variant: 'neutral' };
+  return { key: 'vdot', icon: '📉', title: `跑力 VDOT ${currentVDOT.toFixed(1)}`, detail: `较近期低 ${Math.abs(diff).toFixed(1)}，可能受疲劳或距离较短影响`, variant: 'neutral' };
+}
+
+function buildHREfficiencyInsight(
+  record: RunRecord,
+  history: RunRecord[]
+): RichFeedbackInsight | null {
+  if (record.avg_hr <= 0 || record.avg_pace <= 0 || record.distance < 1) return null;
+  const validHistory = history.filter(r => r.avg_hr > 0 && r.avg_pace > 0 && r.distance >= 1).slice(0, 10);
+  if (validHistory.length < 3) return null;
+
+  const currentEff = record.avg_pace / record.avg_hr;
+  const avgEff = validHistory.reduce((s, r) => s + r.avg_pace / r.avg_hr, 0) / validHistory.length;
+  const pctDiff = (currentEff - avgEff) / avgEff * 100;
+
+  if (pctDiff < -5) return { key: 'efficiency', icon: '💚', title: '心率效率优秀', detail: '同等心率跑出更快配速，心肺适应性提升', variant: 'positive' };
+  if (pctDiff <= 5)  return { key: 'efficiency', icon: '💙', title: '心率效率正常', detail: '心肺负荷与配速匹配良好', variant: 'neutral' };
+  return { key: 'efficiency', icon: '🫀', title: '心率效率偏低', detail: '相同配速下心率偏高，注意疲劳或脱水状态', variant: 'warning' };
+}
+
+function buildRPEInsight(record: RunRecord): RichFeedbackInsight | null {
+  if (!record.rpe || record.rpe < 1) return null;
+  const objectiveRpe: Record<number, number> = {
+    [Intensity.EASY]: 3,
+    [Intensity.NORMAL]: 5,
+    [Intensity.HIGH]: 7.5,
+    [Intensity.OVER]: 10,
+  };
+  const expected = objectiveRpe[record.intensity as Intensity] ?? 5;
+  const diff = record.rpe - expected;
+
+  if (diff >= 3) return { key: 'rpe', icon: '😮‍💨', title: `主观感受比心率更累（RPE ${record.rpe}）`, detail: '可能有睡眠不足、精神压力或隐性疲劳，建议今晚早睡', variant: 'warning' };
+  if (diff <= -3) return { key: 'rpe', icon: '😎', title: `感觉比心率轻松（RPE ${record.rpe}）`, detail: '状态良好，有氧基础在提升，身体适应性增强', variant: 'positive' };
+  return null;
+}
+
+function buildTomorrowRecommendation(
+  record: RunRecord,
+  profile: UserProfile
+): TomorrowRecommendation {
+  const { intensity, distance, vdot } = record;
+
+  let ePaceHint = '轻松对话配速';
+  let ePaceExtreme = '极松（可轻松说完整句子）';
+  if (vdot && vdot > 0) {
+    const zone = eZonePace(vdot);
+    ePaceHint = `E区 ${fmtPaceSec(zone.min)}–${fmtPaceSec(zone.max)}/km`;
+    ePaceExtreme = `极松 >${fmtPaceSec(zone.max)}/km`;
+  }
+
+  if (intensity >= Intensity.OVER) {
+    return { type: '完全休息', distanceRange: '0 km', paceHint: '', reason: '今日强度超过乳酸阈值，建议 48 小时内不跑，补充碳水和睡眠是关键。' };
+  }
+  if (intensity === Intensity.HIGH) {
+    if (distance >= 15) {
+      return { type: '完全休息', distanceRange: '0 km', paceHint: '', reason: '高强度长距离消耗大，肌糖原需要 24–48 小时恢复，明天完全休息。' };
+    }
+    return { type: '恢复跑', distanceRange: '4–6 km', paceHint: ePaceExtreme, reason: '高强度后肌肉微损伤，明天只能极松恢复跑，心率控制在 140 以下。' };
+  }
+  if (intensity === Intensity.NORMAL) {
+    return { type: '轻松跑', distanceRange: '6–8 km', paceHint: ePaceHint, reason: '中等强度后约 24 小时恢复，明天轻松有氧促进血液循环和肌肉修复。' };
+  }
+  // EASY
+  if (distance >= 20) {
+    return { type: '轻松跑', distanceRange: '6–8 km', paceHint: ePaceHint, reason: '今日完成长距离，明天保持短距离轻松跑，让肌肉得到充分恢复。' };
+  }
+  if (distance >= 10) {
+    return { type: '轻松跑', distanceRange: '8–12 km', paceHint: ePaceHint, reason: '今日轻松跑状态良好，明天可继续积累有氧里程，或最后 2km 微加速。' };
+  }
+  return { type: '轻松跑或质量课', distanceRange: '8–12 km', paceHint: ePaceHint, reason: '今日训练量偏少，体能恢复充分，明天可加强训练或补充有氧里程。' };
+}
+
+/**
+ * 生成丰富的训练后反馈，包含多维数据对比与明日处方
+ */
+export function buildRichFeedback(
+  record: RunRecord,
+  allRecords: RunRecord[],
+  profile: UserProfile
+): RichFeedback {
+  const history = allRecords.filter(r => r.id !== record.id);
+  const insights: RichFeedbackInsight[] = [];
+
+  const pace = buildPaceComparisonInsight(record, history);
+  if (pace) insights.push(pace);
+
+  const vdot = buildVDOTTrendInsight(record, history);
+  if (vdot) insights.push(vdot);
+
+  const eff = buildHREfficiencyInsight(record, history);
+  if (eff) insights.push(eff);
+
+  const rpe = buildRPEInsight(record);
+  if (rpe) insights.push(rpe);
+
+  return { insights, tomorrow: buildTomorrowRecommendation(record, profile) };
+}
+
 // ===== 恢复计划（TSB < -30 时自动生成） =====
 
 export interface RecoveryDayPlan {

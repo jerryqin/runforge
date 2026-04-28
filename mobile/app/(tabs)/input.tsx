@@ -254,10 +254,17 @@ export default function InputScreen() {
                   skipped++;
                   continue;
                 }
-                // 检查是否已存在（按日期判断）
+                // 检查是否已存在（按精确时间匹配）
                 const date = workout.startDate.split('T')[0];
+                const workoutStartMs = new Date(workout.startDate).getTime();
                 const existing = await runRecordRepo.fetchAll();
-                if (existing.some(r => r.run_date === date)) {
+                const alreadySaved = existing.some(r =>
+                  Math.abs(r.create_time - workoutStartMs) < 120000 ||
+                  (r.run_date === date &&
+                    Math.abs(r.distance - workout.distanceKm) < 0.005 &&
+                    Math.abs(r.duration_sec - workout.durationSec) < 5)
+                );
+                if (alreadySaved) {
                   skipped++;
                   continue;
                 }
@@ -276,7 +283,7 @@ export default function InputScreen() {
                 });
 
                 await runRecordRepo.save({
-                  create_time: Date.now(),
+                  create_time: new Date(workout.startDate).getTime(),
                   run_date: date,
                   distance: distanceKm,
                   duration_sec: durationSec,
@@ -343,7 +350,7 @@ export default function InputScreen() {
       });
 
       const saved = await runRecordRepo.save({
-        create_time: Date.now(),
+        create_time: selectedWorkout ? new Date(selectedWorkout.startDate).getTime() : Date.now(),
         run_date: runDate,
         distance: dist,
         duration_sec: durationSec,
@@ -495,11 +502,15 @@ export default function InputScreen() {
                                 key={key}
                                 itemKey={key}
                                 workout={item}
-                                isSaved={savedRecords.some(r =>
-                                  r.run_date === item.startDate.split('T')[0] &&
-                                  Math.abs(r.distance - item.distanceKm) < 0.1 &&
-                                  Math.abs(r.duration_sec - item.durationSec) < 60
-                                )}
+                                isSaved={savedRecords.some(r => {
+                                  const workoutStartMs = new Date(item.startDate).getTime();
+                                  // 优先用精确时间匹配（从 Health 导入时 create_time = 运动开始时间）
+                                  if (Math.abs(r.create_time - workoutStartMs) < 120000) return true;
+                                  // 降级：日期 + 更严格的距离/时长容差（兼容旧记录）
+                                  return r.run_date === item.startDate.split('T')[0] &&
+                                    Math.abs(r.distance - item.distanceKm) < 0.005 &&
+                                    Math.abs(r.duration_sec - item.durationSec) < 5;
+                                })}
                                 onImport={handleImportWorkout}
                                 onDelete={handleDeleteWorkout}
                               />
