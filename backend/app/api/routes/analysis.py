@@ -1,9 +1,8 @@
 """
 跑步分析路由
-POST /api/analysis/run            分析单次跑步
-GET  /api/analysis/load           获取当前训练负荷 (ATL/CTL/TSB)
-POST /api/analysis/race-plan      生成比赛备赛计划
-POST /api/analysis/coach-insight  LLM 教练解读（DeepSeek-V3，降级到规则引擎）
+POST /api/analysis/run       分析单次跑步
+GET  /api/analysis/load      获取当前训练负荷 (ATL/CTL/TSB)
+POST /api/analysis/race-plan 生成比赛备赛计划
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -12,10 +11,8 @@ from typing import Optional
 from app.services.analysis_engine import (
     generate_analysis, calc_tss, calc_race_plan
 )
-from app.services.coach_service import get_coach_insight
 from app.models.schemas import (
-    AnalysisResult, TrainingLoad, RacePlanCreate, RaceAssistantResult,
-    CoachInsightRequest, CoachInsightResponse,
+    AnalysisResult, TrainingLoad, RacePlanCreate, RaceAssistantResult
 )
 
 router = APIRouter(prefix="/analysis", tags=["分析"])
@@ -84,13 +81,3 @@ async def race_plan(req: RacePlanCreate):
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
-
-
-@router.post("/coach-insight", response_model=CoachInsightResponse, summary="LLM 教练解读")
-async def coach_insight(req: CoachInsightRequest):
-    """
-    使用 DeepSeek-V3 生成个性化教练点评。
-    - 需要移动端传入规则引擎预计算的数据（fallback_* 字段）
-    - DeepSeek 不可用时自动降级，始终有响应
-    """
-    return await get_coach_insight(req)
