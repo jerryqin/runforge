@@ -58,6 +58,34 @@ class AnalysisResult(BaseModel):
     tss: Optional[float] = None
 
 
+# ── 教练解读 ───────────────────────────────────────────
+class CoachInsightRequest(BaseModel):
+    # 本次训练核心数据
+    distance: float = Field(..., gt=0)
+    avg_hr: int = Field(..., ge=40, le=220)
+    duration_sec: int = Field(..., gt=0)
+    avg_pace: float = Field(..., gt=0, description="配速（秒/km）")
+    intensity: int = Field(..., ge=1, le=4)
+    vdot: Optional[float] = None
+    tss: Optional[float] = None
+    rpe: Optional[int] = Field(None, ge=1, le=10)
+
+    # 历史对比（由移动端规则引擎预计算后传入）
+    pace_pct_diff: Optional[float] = Field(None, description="配速较近期均值差异%，负=更快")
+    vdot_diff: Optional[float] = Field(None, description="本次VDOT与近期中位值差值")
+    hr_efficiency_variant: Optional[str] = Field(None, description="good/normal/low")
+
+    # 规则引擎兜底文案（LLM 失败时直接返回）
+    fallback_conclusion: str
+    fallback_suggest: str
+    fallback_risk: str = ""
+
+
+class CoachInsightResponse(BaseModel):
+    coach_text: str          # 教练点评正文（2-4 句）
+    source: str              # "llm" | "fallback"
+
+
 # ── 训练负荷指标（ATL/CTL/TSB）──────────────────────────
 class TrainingLoad(BaseModel):
     atl: float = Field(..., description="近期疲劳(7天)")
