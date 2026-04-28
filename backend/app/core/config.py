@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # 阿里云通义千问（OCR 优先使用）
     DASHSCOPE_API_KEY: str = ""
 
+    # DeepSeek（教练解读 LLM）
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    DEEPSEEK_MODEL: str = "deepseek-chat"   # deepseek-chat = V3
+    COACH_TIMEOUT_SEC: float = 8.0           # 超时后降级到规则引擎文案
+
     # Supabase（v2.0 引入云端DB时使用）
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
