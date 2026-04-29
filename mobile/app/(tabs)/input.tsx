@@ -259,7 +259,7 @@ export default function InputScreen() {
                 const workoutStartMs = new Date(workout.startDate).getTime();
                 const existing = await runRecordRepo.fetchAll();
                 const alreadySaved = existing.some(r =>
-                  Math.abs(r.create_time - workoutStartMs) < 120000 ||
+                  Math.abs(r.create_time - workoutStartMs) < 3000 ||
                   (r.run_date === date &&
                     Math.abs(r.distance - workout.distanceKm) < 0.005 &&
                     Math.abs(r.duration_sec - workout.durationSec) < 5)
@@ -504,9 +504,10 @@ export default function InputScreen() {
                                 workout={item}
                                 isSaved={savedRecords.some(r => {
                                   const workoutStartMs = new Date(item.startDate).getTime();
-                                  // 优先用精确时间匹配（从 Health 导入时 create_time = 运动开始时间）
-                                  if (Math.abs(r.create_time - workoutStartMs) < 120000) return true;
-                                  // 降级：日期 + 更严格的距离/时长容差（兼容旧记录）
+                                  // 精确时间匹配：同一 ISO 字符串 getTime() 结果完全相同，3s 容差仅兼容毫秒精度差异
+                                  // 不能用大窗口（如 120s），否则同天相邻运动会被误判为已保存
+                                  if (Math.abs(r.create_time - workoutStartMs) < 3000) return true;
+                                  // 降级：日期 + 严格距离/时长容差（兼容旧版 create_time=Date.now() 的记录）
                                   return r.run_date === item.startDate.split('T')[0] &&
                                     Math.abs(r.distance - item.distanceKm) < 0.005 &&
                                     Math.abs(r.duration_sec - item.durationSec) < 5;
