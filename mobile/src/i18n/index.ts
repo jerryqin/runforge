@@ -1,7 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import zh from './locales/zh.json';
 import en from './locales/en.json';
@@ -11,32 +10,18 @@ const LANGUAGE_DETECTOR = {
   async: true,
   detect: async (callback: (lang: string) => void) => {
     try {
-      // 优先检查用户保存的语言设置
-      const savedLanguage = await AsyncStorage.getItem('user_language');
-      if (savedLanguage) {
-        callback(savedLanguage);
-        return;
-      }
-      
-      // 如果没有保存的设置，使用系统语言
-      const systemLanguage = Localization.locale;
-      const language = systemLanguage.split('-')[0]; // 只取语言代码，忽略地区
-      
-      // 如果系统语言是中文，使用中文，否则默认英文
-      callback(['zh', 'zh-CN', 'zh-TW', 'zh-HK'].includes(systemLanguage) || language === 'zh' ? 'zh' : 'en');
+      // 每次启动直接读系统语言，不使用缓存，确保跟随手机语言设置
+      const locales = Localization.getLocales();
+      const systemLocale = locales?.[0]?.languageCode ?? Localization.locale.split('-')[0];
+      callback(systemLocale === 'zh' ? 'zh' : 'en');
     } catch (error) {
       console.log('Error detecting language:', error);
-      callback('zh'); // 默认中文
+      callback('en');
     }
   },
   init: () => {},
-  cacheUserLanguage: async (language: string) => {
-    try {
-      await AsyncStorage.setItem('user_language', language);
-    } catch (error) {
-      console.log('Failed to save language setting:', error);
-    }
-  },
+  // 不缓存语言，保持跟随系统
+  cacheUserLanguage: () => {},
 };
 
 const resources = {
@@ -53,7 +38,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'zh',
+    fallbackLng: 'en',
     debug: false,
     interpolation: {
       escapeValue: false,
