@@ -20,7 +20,10 @@ import {
   Spacing,
 } from '../../src/constants/theme';
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
-import { buildConclusion, buildRisk, buildSuggest, formatDuration, formatPace } from '../../src/engine/AnalysisEngine';
+import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
+import { buildConclusion, buildRichFeedback, buildRisk, buildSuggest, formatDuration, formatPace, RichFeedback } from '../../src/engine/AnalysisEngine';
+import { fetchCoachInsight, CoachInsightResult } from '../../src/services/CoachService';
+import { CoachCard, InsightsBlock, TomorrowCard } from '../../src/components/TrainingInsights';
 import { Intensity, getIntensityLabel, RunRecord } from '../../src/types';
 
 export default function RecordDetailScreen() {
@@ -28,13 +31,37 @@ export default function RecordDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [record, setRecord] = useState<RunRecord | null>(null);
+  const [richFeedback, setRichFeedback] = useState<RichFeedback | null>(null);
+  const [coachInsight, setCoachInsight] = useState<CoachInsightResult | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    runRecordRepo.fetchById(parseInt(id, 10))
-      .then(setRecord)
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [rec, allRecords, profile] = await Promise.all([
+          runRecordRepo.fetchById(parseInt(id, 10)),
+          runRecordRepo.fetchAll(),
+          userProfileRepo.get(),
+        ]);
+        setRecord(rec);
+        if (rec && profile) {
+          const rf = buildRichFeedback(rec, allRecords, profile);
+          setRichFeedback(rf);
+          setCoachLoading(true);
+          fetchCoachInsight(
+            rec, rf,
+            buildConclusion(rec.intensity as Intensity),
+            buildSuggest(rec.intensity as Intensity, rec.distance, []),
+            buildRisk(rec.intensity as Intensity, []) ?? '',
+          ).then(result => setCoachInsight(result))
+            .finally(() => setCoachLoading(false));
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [id]);
 
   const handleDelete = () => {
@@ -101,9 +128,20 @@ export default function RecordDetailScreen() {
           )}
         </View>
 
-        {/* 分析结论 */}
-        <AnalysisBlock title={t('record.sectionSummary')} content={buildConclusion(record.intensity as Intensity)} />
-        <AnalysisBlock title={t('record.sectionTomorrow')} content={buildSuggest(record.intensity as Intensity, record.distance, [])} />
+        {/* 教练解读 */}
+        <CoachCard loading={coachLoading} insight={coachInsight} />
+
+        {/* 训练分析 */}
+        {richFeedback && <InsightsBlock insights={richFeedback.insights} />}
+
+        {/* 明日建议 */}
+        {richFeedback ? (
+          <TomorrowCard recommendation={richFeedback.tomorrow} />
+        ) : (
+          <AnalysisBlock title={t('record.sectionTomorrow')} content={buildSuggest(record.intensity as Intensity, record.distance, [])} />
+        )}
+
+        {/* 风险提示 */}
         {(() => { const risk = buildRisk(record.intensity as Intensity, []); return risk ? <AnalysisBlock title={t('record.sectionRisk')} content={risk} warning /> : null; })()}
 
         {/* 删除按钮 */}

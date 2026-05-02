@@ -26,10 +26,11 @@ import {
 import { runRecordRepo } from '../../src/db/repositories/RunRecordRepository';
 import { userProfileRepo } from '../../src/db/repositories/UserProfileRepository';
 import { challengesRepo, Challenge } from '../../src/db/repositories/ChallengesRepository';
-import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, formatPace, RecoveryPlan } from '../../src/engine/AnalysisEngine';
+import { calcCompositeBodyStatus, calcIntensity, buildConclusion, buildSuggest, buildRisk, calcFitnessMetrics, generateRecoveryPlan, formatPace, buildRichFeedback, RichFeedback, RecoveryPlan } from '../../src/engine/AnalysisEngine';
 import { buildTrainingMomentum, buildWeeklyProgressSummary, calcWeeklyProgress, WeeklyProgress } from '../../src/engine/RetentionEngine';
 import { generatePrescription, calcTrainingZones, TrainingPrescription, TrainingType } from '../../src/engine/VDOTEngine';
 import { calcVDOT } from '../../src/engine/VDOTEngine';
+import { InsightsBlock, TomorrowCard } from '../../src/components/TrainingInsights';
 import { BodyStatus, RunRecord, Intensity } from '../../src/types';
 
 export default function HomeScreen() {
@@ -282,6 +283,8 @@ export default function HomeScreen() {
             <RecentTrainingCarousel
               records={latestDayRecords}
               weeklyProgress={weeklyProgress}
+              allRecords={allRecords}
+              profile={profile}
               onPressRecord={(id) => router.push(`/record/${id}`)}
             />
           </Section>
@@ -435,28 +438,45 @@ function WeeklyProgressCard({
 function FeedbackCard({
   record,
   weeklyProgress,
+  allRecords,
+  profile,
 }: {
   record: RunRecord;
   weeklyProgress: WeeklyProgress | null;
+  allRecords: RunRecord[];
+  profile: any;
 }) {
   const { t } = useTranslation();
+  const richFeedback: RichFeedback | null = profile ? buildRichFeedback(record, allRecords, profile) : null;
   return (
-    <View style={styles.feedbackCard}>
-      <Text style={styles.feedbackTitle}>{t('weeklyProgress.trainingFeedback')}</Text>
+    <View style={{ gap: CARD_GAP }}>
+      <View style={styles.feedbackCard}>
+        <Text style={styles.feedbackTitle}>{t('weeklyProgress.trainingFeedback')}</Text>
 
-      {/* 明日建议：针对本次训练强度给出下一步行动 */}
-      <Text style={styles.feedbackSubTitle}>{t('analysis.tomorrowAction')}</Text>
-      <Text style={styles.feedbackBody}>{record.suggest}</Text>
+        {/* 明日建议简版：仅在无 richFeedback 时显示 */}
+        {!richFeedback && (
+          <>
+            <Text style={styles.feedbackSubTitle}>{t('analysis.tomorrowAction')}</Text>
+            <Text style={styles.feedbackBody}>{record.suggest}</Text>
+          </>
+        )}
 
-      {/* 本次贡献：这条记录为本周目标带来的推进 */}
-      {weeklyProgress ? (
-        <>
-          <View style={styles.feedbackDivider} />
-          <Text style={styles.feedbackMomentum}>{buildTrainingMomentum(record, weeklyProgress)}</Text>
-        </>
-      ) : null}
+        {/* 本次贡献：这条记录为本周目标带来的推进 */}
+        {weeklyProgress ? (
+          <>
+            <View style={styles.feedbackDivider} />
+            <Text style={styles.feedbackMomentum}>{buildTrainingMomentum(record, weeklyProgress)}</Text>
+          </>
+        ) : null}
 
-      {record.risk ? <Text style={styles.riskText}>⚠️ {record.risk}</Text> : null}
+        {record.risk ? <Text style={styles.riskText}>⚠️ {record.risk}</Text> : null}
+      </View>
+
+      {/* 训练分析（InsightRow 列表） */}
+      {richFeedback && <InsightsBlock insights={richFeedback.insights} />}
+
+      {/* 明日建议详细版 */}
+      {richFeedback && <TomorrowCard recommendation={richFeedback.tomorrow} />}
     </View>
   );
 }
@@ -467,10 +487,14 @@ const PEEK_WIDTH = 20; // 下一张卡片从右侧露出的宽度
 function RecentTrainingCarousel({
   records,
   weeklyProgress,
+  allRecords,
+  profile,
   onPressRecord,
 }: {
   records: RunRecord[];
   weeklyProgress: WeeklyProgress | null;
+  allRecords: RunRecord[];
+  profile: any;
   onPressRecord: (id: number) => void;
 }) {
   const screenWidth = Dimensions.get('window').width;
@@ -496,7 +520,12 @@ function RecentTrainingCarousel({
               onPress={() => record.id != null && onPressRecord(record.id!)}
             />
             <View style={{ marginTop: CARD_GAP }}>
-              <FeedbackCard record={record} weeklyProgress={weeklyProgress} />
+              <FeedbackCard
+                record={record}
+                weeklyProgress={weeklyProgress}
+                allRecords={allRecords}
+                profile={profile}
+              />
             </View>
           </View>
         ))}

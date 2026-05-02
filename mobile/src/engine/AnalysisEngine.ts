@@ -581,9 +581,9 @@ function buildHREfficiencyInsight(
   record: RunRecord,
   history: RunRecord[]
 ): RichFeedbackInsight | null {
-  if (record.avg_hr <= 0 || record.avg_pace <= 0 || record.distance < 1) return null;
-  const validHistory = history.filter(r => r.avg_hr > 0 && r.avg_pace > 0 && r.distance >= 1).slice(0, 10);
-  if (validHistory.length < 3) return null;
+  if (record.avg_hr <= 0 || record.avg_pace <= 0 || record.distance < 0.1) return null;
+  const validHistory = history.filter(r => r.avg_hr > 0 && r.avg_pace > 0 && r.distance >= 0.1).slice(0, 10);
+  if (validHistory.length < 2) return null;
 
   const currentEff = record.avg_pace / record.avg_hr;
   const avgEff = validHistory.reduce((s, r) => s + r.avg_pace / r.avg_hr, 0) / validHistory.length;

@@ -168,9 +168,7 @@ export default function TrainingFeedbackScreen() {
         {shouldShowFeedbackBlocks ? (
           <>
             {/* 教练解读（LLM / 降级文案） */}
-            {(coachLoading || coachInsight) ? (
-              <CoachCard loading={coachLoading} insight={coachInsight} />
-            ) : null}
+            <CoachCard loading={coachLoading} insight={coachInsight} />
 
             {/* 训练分析 */}
             {richFeedback && richFeedback.insights.length > 0 ? (
