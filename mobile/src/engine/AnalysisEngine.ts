@@ -536,45 +536,120 @@ function fmtPaceSec(sec: number): string {
   return `${m}'${s.toString().padStart(2, '0')}"`;
 }
 
+// ===== 距离分桶（用于同类训练对比）=====
+
+/**
+ * 将跑步距离归入类型桶，同桶内才有可比性
+ * 桶名同时作为展示标签的一部分
+ */
+function getDistanceBucket(km: number): { key: string; label: string } {
+  if (km < 0.3)  return { key: 'interval_100',  label: '100m 级间歇' };
+  if (km < 0.8)  return { key: 'interval_400',  label: '400m 级间歇' };
+  if (km < 1.5)  return { key: 'interval_1k',   label: '1km 级间歇' };
+  if (km < 4)    return { key: 'run_3k',         label: '3km 短跑' };
+  if (km < 8)    return { key: 'run_5k',         label: '5km 跑' };
+  if (km < 12)   return { key: 'run_10k',        label: '10km 跑' };
+  if (km < 17)   return { key: 'run_15k',        label: '15km 跑' };
+  if (km < 24)   return { key: 'run_half',       label: '半马' };
+  if (km < 35)   return { key: 'run_30k',        label: '30km 长跑' };
+  return          { key: 'run_marathon',          label: '全马' };
+}
+
+interface NumStats {
+  avg: number;
+  best: number;  // 对配速=最快(最小)，对VDOT/效率=最高(最大)
+  worst: number; // 对配速=最慢(最大)，对VDOT/效率=最低(最小)
+  count: number;
+}
+
+/** 计算数组统计量（higherIsBetter=true 时 best=max，false 时 best=min） */
+function calcStats(values: number[], higherIsBetter: boolean): NumStats {
+  const sorted = [...values].sort((a, b) => a - b);
+  // 均值：≥5 条时去掉最极端各 1 条，减少噪声
+  const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted;
+  const avg = trimmed.reduce((s, v) => s + v, 0) / trimmed.length;
+  return {
+    avg,
+    best: higherIsBetter ? sorted[sorted.length - 1] : sorted[0],
+    worst: higherIsBetter ? sorted[0] : sorted[sorted.length - 1],
+    count: values.length,
+  };
+}
+
 function buildPaceComparisonInsight(
   record: RunRecord,
   history: RunRecord[]
 ): RichFeedbackInsight | null {
-  const validHistory = history.filter(r => r.distance >= 3 && r.avg_pace > 0).slice(0, 15);
-  if (validHistory.length < 3 || record.distance < 3) return null;
+  if (record.avg_pace <= 0) return null;
 
-  const totalDist = validHistory.reduce((s, r) => s + r.distance, 0);
-  const weightedAvgPace = validHistory.reduce((s, r) => s + r.avg_pace * r.distance, 0) / totalDist;
-  const pctDiff = (record.avg_pace - weightedAvgPace) / weightedAvgPace * 100;
-  const abs = Math.abs(pctDiff).toFixed(1);
+  const bucket = getDistanceBucket(record.distance);
+  const peers = history.filter(r => getDistanceBucket(r.distance).key === bucket.key && r.avg_pace > 0);
 
-  if (pctDiff < -5) return { key: 'pace', icon: '🚀', title: `配速比近期快 ${abs}%`, detail: '今日状态出色，跑出了高水平表现', variant: 'positive' };
-  if (pctDiff < -2) return { key: 'pace', icon: '📈', title: `配速快于近期均值 ${abs}%`, detail: '发挥稳定，训练效果持续体现', variant: 'positive' };
-  if (pctDiff <= 2)  return { key: 'pace', icon: '➡️', title: '配速与近期水平相当', detail: '节奏稳定，训练连贯性良好', variant: 'neutral' };
-  if (pctDiff <= 5)  return { key: 'pace', icon: '🌡️', title: `配速比近期慢 ${abs}%`, detail: '轻度偏慢，可能是气候或轻度疲劳', variant: 'neutral' };
-  return { key: 'pace', icon: '⚠️', title: `配速比近期慢 ${abs}%`, detail: '明显偏慢，注意是否有睡眠不足或过度疲劳', variant: 'warning' };
+  if (peers.length < 2) {
+    if (peers.length === 0) {
+      return { key: 'pace', icon: '📋', title: `首次 ${bucket.label} 记录`, detail: '再完成 2 次同类训练，即可开始横向对比分析', variant: 'neutral' };
+    }
+    return { key: 'pace', icon: '📋', title: `${bucket.label} 数据积累中（${peers.length}/2）`, detail: '再完成 1 次同类训练，即可开始横向对比分析', variant: 'neutral' };
+  }
+
+  // 配速：数值越小越快，higherIsBetter=false → best=最快(min)，worst=最慢(max)
+  const stats = calcStats(peers.map(r => r.avg_pace), false);
+  const cur = record.avg_pace;
+  const pctVsAvg = (cur - stats.avg) / stats.avg * 100;
+  const absVsAvg = Math.abs(pctVsAvg).toFixed(1);
+
+  // 三基准参考行（显示在 detail 中）
+  const ref = `最快 ${fmtPaceSec(stats.best)} · 均值 ${fmtPaceSec(stats.avg)} · 最慢 ${fmtPaceSec(stats.worst)}/km（共 ${stats.count} 次）`;
+
+  // 是否创新最快纪录
+  if (cur < stats.best) {
+    return { key: 'pace', icon: '🏆', title: `${bucket.label} 新个人最快！${fmtPaceSec(cur)}/km`, detail: `超越历史最快记录 ${fmtPaceSec(stats.best)}/km\n${ref}`, variant: 'positive' };
+  }
+  if (pctVsAvg < -5) return { key: 'pace', icon: '🚀', title: `${bucket.label} 配速比均值快 ${absVsAvg}%`, detail: `今日超水平发挥，接近历史最佳\n${ref}`, variant: 'positive' };
+  if (pctVsAvg < -2) return { key: 'pace', icon: '📈', title: `${bucket.label} 配速快于均值 ${absVsAvg}%`, detail: `训练效果持续提升\n${ref}`, variant: 'positive' };
+  if (pctVsAvg <= 2)  return { key: 'pace', icon: '➡️', title: `${bucket.label} 配速与历史均值相当`, detail: `节奏稳定\n${ref}`, variant: 'neutral' };
+  if (pctVsAvg <= 5)  return { key: 'pace', icon: '🌡️', title: `${bucket.label} 配速比均值慢 ${absVsAvg}%`, detail: `轻度偏慢，可能是气候或轻度疲劳\n${ref}`, variant: 'neutral' };
+  // 是否接近历史最慢
+  const pctVsWorst = (cur - stats.worst) / stats.worst * 100;
+  if (pctVsWorst >= -2) {
+    return { key: 'pace', icon: '🔴', title: `${bucket.label} 配速接近历史最慢`, detail: `明显偏慢，注意睡眠和疲劳状态\n${ref}`, variant: 'warning' };
+  }
+  return { key: 'pace', icon: '⚠️', title: `${bucket.label} 配速比均值慢 ${absVsAvg}%`, detail: `明显偏慢，注意睡眠和疲劳状态\n${ref}`, variant: 'warning' };
 }
 
 function buildVDOTTrendInsight(
   record: RunRecord,
   history: RunRecord[]
 ): RichFeedbackInsight | null {
-  const currentVDOT = record.vdot;
-  if (!currentVDOT || currentVDOT <= 0 || record.distance < 3) return null;
+  const cur = record.vdot;
+  if (!cur || cur <= 0 || record.distance < 3) return null;
 
-  const validHistory = history.filter(r => r.distance >= 3 && r.vdot && r.vdot > 0).slice(0, 5);
-  if (validHistory.length < 2) {
-    return { key: 'vdot', icon: '🏃', title: `跑力 VDOT ${currentVDOT.toFixed(1)}`, detail: '继续积累数据，即可看到跑力变化趋势', variant: 'neutral' };
+  const bucket = getDistanceBucket(record.distance);
+  const peers = history.filter(r =>
+    getDistanceBucket(r.distance).key === bucket.key && r.vdot && r.vdot > 0
+  ).slice(0, 20);
+
+  if (peers.length < 2) {
+    return { key: 'vdot', icon: '🏃', title: `跑力 VDOT ${cur.toFixed(1)}`, detail: `再完成 1 次 ${bucket.label} 即可看到跑力变化趋势`, variant: 'neutral' };
   }
 
-  const sorted = [...validHistory.map(r => r.vdot!)].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-  const diff = currentVDOT - median;
+  // VDOT：higherIsBetter=true → best=最大，worst=最小
+  const stats = calcStats(peers.map(r => r.vdot!), true);
+  const diffVsAvg = cur - stats.avg;
 
-  if (diff >= 1.5) return { key: 'vdot', icon: '🔥', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，近期最佳`, detail: `较近期中位值提升 ${diff.toFixed(1)}，有氧能力显著成长`, variant: 'positive' };
-  if (diff >= 0.5) return { key: 'vdot', icon: '📈', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，稳步提升`, detail: `较近期高 ${diff.toFixed(1)}，训练效果持续显现`, variant: 'positive' };
-  if (diff >= -0.5) return { key: 'vdot', icon: '⚖️', title: `跑力 VDOT ${currentVDOT.toFixed(1)}，稳定发挥`, detail: '与近期水平相当，基础扎实', variant: 'neutral' };
-  return { key: 'vdot', icon: '📉', title: `跑力 VDOT ${currentVDOT.toFixed(1)}`, detail: `较近期低 ${Math.abs(diff).toFixed(1)}，可能受疲劳或距离较短影响`, variant: 'neutral' };
+  const ref = `最高 ${stats.best.toFixed(1)} · 均值 ${stats.avg.toFixed(1)} · 最低 ${stats.worst.toFixed(1)}（共 ${stats.count} 次）`;
+
+  if (cur >= stats.best) {
+    return { key: 'vdot', icon: '🏆', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，历史最佳！`, detail: `突破个人历史最高\n${ref}`, variant: 'positive' };
+  }
+  if (diffVsAvg >= 1.5) return { key: 'vdot', icon: '🔥', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，高于均值 ${diffVsAvg.toFixed(1)}`, detail: `有氧能力显著成长\n${ref}`, variant: 'positive' };
+  if (diffVsAvg >= 0.5) return { key: 'vdot', icon: '📈', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，高于均值 ${diffVsAvg.toFixed(1)}`, detail: `训练效果持续显现\n${ref}`, variant: 'positive' };
+  if (diffVsAvg >= -0.5) return { key: 'vdot', icon: '⚖️', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，与均值相当`, detail: `基础扎实\n${ref}`, variant: 'neutral' };
+  const diffVsWorst = cur - stats.worst;
+  if (diffVsWorst <= 0.5) {
+    return { key: 'vdot', icon: '🔴', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，接近历史最低`, detail: `注意疲劳累积或训练不足\n${ref}`, variant: 'warning' };
+  }
+  return { key: 'vdot', icon: '📉', title: `${bucket.label} 跑力 ${cur.toFixed(1)}，低于均值 ${Math.abs(diffVsAvg).toFixed(1)}`, detail: `注意疲劳或距离偏差\n${ref}`, variant: 'neutral' };
 }
 
 function buildHREfficiencyInsight(
@@ -582,16 +657,32 @@ function buildHREfficiencyInsight(
   history: RunRecord[]
 ): RichFeedbackInsight | null {
   if (record.avg_hr <= 0 || record.avg_pace <= 0 || record.distance < 0.1) return null;
-  const validHistory = history.filter(r => r.avg_hr > 0 && r.avg_pace > 0 && r.distance >= 0.1).slice(0, 10);
-  if (validHistory.length < 2) return null;
 
-  const currentEff = record.avg_pace / record.avg_hr;
-  const avgEff = validHistory.reduce((s, r) => s + r.avg_pace / r.avg_hr, 0) / validHistory.length;
-  const pctDiff = (currentEff - avgEff) / avgEff * 100;
+  const bucket = getDistanceBucket(record.distance);
+  const peers = history.filter(r =>
+    getDistanceBucket(r.distance).key === bucket.key && r.avg_hr > 0 && r.avg_pace > 0
+  ).slice(0, 20);
+  if (peers.length < 2) return null;
 
-  if (pctDiff < -5) return { key: 'efficiency', icon: '💚', title: '心率效率优秀', detail: '同等心率跑出更快配速，心肺适应性提升', variant: 'positive' };
-  if (pctDiff <= 5)  return { key: 'efficiency', icon: '💙', title: '心率效率正常', detail: '心肺负荷与配速匹配良好', variant: 'neutral' };
-  return { key: 'efficiency', icon: '🫀', title: '心率效率偏低', detail: '相同配速下心率偏高，注意疲劳或脱水状态', variant: 'warning' };
+  // 效率 = pace / hr，数值越小越好（同等心率配速越快）→ higherIsBetter=false
+  const curEff = record.avg_pace / record.avg_hr;
+  const stats = calcStats(peers.map(r => r.avg_pace / r.avg_hr), false);
+  const pctVsAvg = (curEff - stats.avg) / stats.avg * 100;
+  const absVsAvg = Math.abs(pctVsAvg).toFixed(1);
+
+  // 效率值转换为可读格式：每次心跳对应多少秒/km（越小=越好，显示时用百分比即可）
+  const ref = `最优效率 ${(stats.best * 1000).toFixed(0)}ms/bpm · 均值 ${(stats.avg * 1000).toFixed(0)} · 最差 ${(stats.worst * 1000).toFixed(0)}（共 ${stats.count} 次）`;
+
+  if (curEff <= stats.best) {
+    return { key: 'efficiency', icon: '🏆', title: `${bucket.label} 心率效率历史最优！`, detail: `同等心率跑出最快配速，心肺适应性显著提升\n${ref}`, variant: 'positive' };
+  }
+  if (pctVsAvg < -5) return { key: 'efficiency', icon: '💚', title: `${bucket.label} 心率效率优秀（高于均值 ${absVsAvg}%）`, detail: `同等心率跑出更快配速\n${ref}`, variant: 'positive' };
+  if (pctVsAvg <= 5)  return { key: 'efficiency', icon: '💙', title: `${bucket.label} 心率效率正常`, detail: `心肺负荷与配速匹配良好\n${ref}`, variant: 'neutral' };
+  const pctVsWorst = (curEff - stats.worst) / stats.worst * 100;
+  if (pctVsWorst >= -3) {
+    return { key: 'efficiency', icon: '🔴', title: `${bucket.label} 心率效率接近历史最差`, detail: `相同配速下心率异常偏高，注意疲劳或脱水\n${ref}`, variant: 'warning' };
+  }
+  return { key: 'efficiency', icon: '🫀', title: `${bucket.label} 心率效率偏低（低于均值 ${absVsAvg}%）`, detail: `相同配速下心率偏高，注意疲劳或脱水状态\n${ref}`, variant: 'warning' };
 }
 
 function buildRPEInsight(record: RunRecord): RichFeedbackInsight | null {
